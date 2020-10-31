@@ -1,4 +1,4 @@
-import { Schema, Layout, serialize, toBuffer, deserialize } from './borsh'
+import { Schema, Layout, toBuffer } from './borsh'
 import { PublicKey } from '@solana/web3.js'
 import _ from 'lodash'
 
