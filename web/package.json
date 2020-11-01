@@ -12,7 +12,14 @@
     "localnet:update": "solana-localnet update beta",
     "localnet:up": "set -x; solana-localnet down; set -e; solana-localnet up beta",
     "localnet:down": "solana-localnet down",
-    "localnet:logs": "solana-localnet logs -f"
+    "localnet:logs": "solana-localnet logs -f",
+    "sol:account:info": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/account.ts info",
+    "sol:account:create": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/account.ts create",
+    "sol:account:list": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/account.ts list",
+    "sol:account:airdrop": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/account.ts airdrop",
+    "sol:program:deploy": "yarn build:program && ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/deploy.ts",
+    "sol:program:exec": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/execute.ts",
+    "sol:program:check": "yarn sol:program:deploy && yarn sol:program:exec"
   },
   "dependencies": {
     "@solana/web3.js": "^0.82.0",
