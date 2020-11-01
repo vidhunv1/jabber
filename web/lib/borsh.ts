@@ -6,7 +6,7 @@ const textDecoder = new TextDecoder('utf-8', { fatal: true })
 const INITIAL_LENGTH = 1024
 const PK_BYTES = 32 // the length of the public key
 
-type BaseFields = 'u8' | 'u64' | 'string' | 'pk'
+type BaseFields = 'u8' | 'u16' | 'u32' | 'u64' | 'string' | 'pk'
 type FieldType = BaseFields | [number] | [BaseFields]
 export interface StructSchema {
   kind: 'struct'
@@ -55,6 +55,12 @@ export class BinaryWriter {
     this.maybe_resize()
     this.buf.writeUInt8(value, this.length)
     this.length += 1
+  }
+
+  public write_u16(value: number) {
+    this.maybe_resize()
+    this.buf.writeUInt16LE(value, this.length)
+    this.length += 4
   }
 
   public write_u32(value: number) {
@@ -142,6 +148,13 @@ export class BinaryReader {
   read_u8(): number {
     const value = this.buf.readUInt8(this.offset)
     this.offset += 1
+    return value
+  }
+
+  @handlingRangeError
+  read_u16(): number {
+    const value = this.buf.readUInt16LE(this.offset)
+    this.offset += 2
     return value
   }
 
