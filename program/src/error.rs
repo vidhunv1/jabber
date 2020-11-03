@@ -8,6 +8,10 @@ pub enum JabberError {
     AccountNotDeterministic = 0,
     #[error("Account not Authorized")]
     AccountNotAuthorized = 1,
+    #[error("Account not rent exempt")]
+    AccountNotRentExempt = 2,
+    #[error("Chat thread exists")]
+    ChatThreadExists = 3,
 }
 impl From<JabberError> for ProgramError {
     fn from(e: JabberError) -> Self {
