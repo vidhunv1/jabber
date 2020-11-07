@@ -160,21 +160,14 @@ impl JabberInstruction {
                     s.thread_tail_pk = Some(thread_acc.key.to_bytes());
                     s.pack(&mut s_data);
 
-                    // UserProfile for receiver may not exist
-                    let (mut r, r_data) = if r_profile_exists {
-                        let r_data = r_profile_acc.try_borrow_mut_data()?;
-                        (Profile::unpack(&r_data)?, Some(r_data))
-                    } else {
-                        (Profile::default(), None)
-                    };
-
                     // Update the thread tail for receiver. We add it to the program
                     // root account if their profile does not exist.
                     if r_profile_exists {
+                        let mut r_data = r_profile_acc.try_borrow_mut_data()?;
+                        let mut r = Profile::unpack(&r_data)?;
                         thread.prev_thread_u2_pk = r.thread_tail_pk;
                         r.thread_tail_pk = Some(thread_acc.key.to_bytes());
-                        let mut d = r_data.unwrap();
-                        r.pack(&mut d);
+                        r.pack(&mut r_data);
                     } else {
                         // The reciever is not registered, point thread to unregistered users.
                         let mut jabber_data = jabber_acc.try_borrow_mut_data()?;
