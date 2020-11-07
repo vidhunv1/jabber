@@ -1,4 +1,12 @@
-import { BpfLoader, Connection, LAMPORTS_PER_SOL, Account, BPF_LOADER_PROGRAM_ID } from '@solana/web3.js'
+import {
+  BpfLoader,
+  Connection,
+  LAMPORTS_PER_SOL,
+  Account,
+  BPF_LOADER_PROGRAM_ID,
+  Transaction,
+  SystemProgram,
+} from '@solana/web3.js'
 import fs from 'fs'
 import { getLocalAccount, getLocalAccounts, getLastProgramId } from './store'
 
@@ -8,6 +16,8 @@ const rl = readline.createInterface({
   output: process.stdout,
 })
 import { RPC_URL, PROGRAM_PATH, ACCOUNTS_FILE } from './config'
+import { Jabber } from '../lib/state'
+import { sendAndConfirmTransaction } from '../lib/solana'
 
 async function estimateProgramCost(connection: Connection, programPath: string) {
   const { feeCalculator } = await connection.getRecentBlockhash()
@@ -48,7 +58,7 @@ async function deploy(payerPK?: string) {
     payerAccount = accs[0]
   }
 
-  console.log('PAYER: ' + payerAccount.publicKey)
+  console.log('\nPAYER: ' + payerAccount.publicKey)
   const dir = await fs.promises.opendir(PROGRAM_PATH)
   let dirent: any
   while ((dirent = dir.readSync()) !== null) {
@@ -72,13 +82,35 @@ async function deploy(payerPK?: string) {
 
       const programAccount = new Account()
       await BpfLoader.load(connection, payerAccount, programAccount, programSO, BPF_LOADER_PROGRAM_ID)
-
       console.log('Program loaded to account', programAccount.publicKey.toBase58())
+
+      // Create the Jabber account
+      const jabberAccount = await Jabber.createWithSeed(programAccount.publicKey)
+      const lamports = await connection.getMinimumBalanceForRentExemption(Jabber.SPACE)
+
+      const createProfileTx = SystemProgram.createAccountWithSeed({
+        fromPubkey: payerAccount.publicKey,
+        lamports,
+        space: Jabber.SPACE,
+        basePubkey: payerAccount.publicKey,
+        seed: Jabber.SEED,
+        programId: programAccount.publicKey,
+        newAccountPubkey: jabberAccount,
+      })
+      await sendAndConfirmTransaction(
+        'createJabberAccount',
+        connection,
+        new Transaction().add(createProfileTx),
+        payerAccount,
+      )
+
+      console.log('Jabber account created at: ' + jabberAccount.toString())
 
       // Write to local store
       const data = fs.readFileSync(ACCOUNTS_FILE, 'utf-8')
       const out = JSON.parse(data)
       out['lastProgramId'] = programAccount.publicKey.toBase58()
+      out['jabberAccount'] = jabberAccount.toBase58()
       fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(out), 'utf8')
 
       // Test sanity

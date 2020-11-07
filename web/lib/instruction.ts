@@ -1,5 +1,9 @@
 import { Layout, Schema } from './borsh'
 
+export enum InstructionType {
+  SetProfile = 'SetProfile',
+  SendMessage = 'SendMessage',
+}
 export class Instruction extends Layout {
   constructor(prop: any) {
     const len = prop[prop['instruction']] != null ? prop[prop['instruction']].length : 0
@@ -9,7 +13,10 @@ export class Instruction extends Layout {
         {
           kind: 'enum',
           field: 'instruction',
-          values: [['SetUserProfile', [len]]],
+          values: [
+            [InstructionType.SetProfile, [len]],
+            [InstructionType.SendMessage, [len]],
+          ],
         },
       ],
     ])
@@ -18,21 +25,35 @@ export class Instruction extends Layout {
 }
 
 export class InstructionData extends Layout {
-  static schema: Schema = new Map([
-    [
-      InstructionData,
-      {
-        kind: 'struct',
-        fields: [
-          ['name', { kind: 'option', type: 'string' }],
-          ['bio', { kind: 'option', type: 'string' }],
-          ['lamportsPerMessage', { kind: 'option', type: 'u64' }],
-        ],
-      },
-    ],
-  ])
+  static schema: Record<InstructionType, Schema> = {
+    [InstructionType.SetProfile]: new Map([
+      [
+        InstructionData,
+        {
+          kind: 'struct',
+          fields: [
+            ['name', { kind: 'option', type: 'string' }],
+            ['bio', { kind: 'option', type: 'string' }],
+            ['lamportsPerMessage', { kind: 'option', type: 'u64' }],
+          ],
+        },
+      ],
+    ]),
+    [InstructionType.SendMessage]: new Map([
+      [
+        InstructionData,
+        {
+          kind: 'struct',
+          fields: [
+            ['kind', 'u8'],
+            ['msg', 'string'],
+          ],
+        },
+      ],
+    ]),
+  }
 
-  constructor(prop: any) {
-    super(InstructionData.schema, prop)
+  constructor(instructionType: InstructionType, prop: any) {
+    super(InstructionData.schema[instructionType], prop)
   }
 }

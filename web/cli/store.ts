@@ -24,13 +24,16 @@ export async function getLocalAccounts(): Promise<Account[]> {
   for (let i = 0; i < wallets.length; i++) {
     const wallet = new Account(wallets[i])
     out.push(wallet)
-    console.log(`${i + 1} => ${wallet.publicKey.toBase58()}`)
   }
-
   return out
 }
 
 export async function getLastProgramId(): Promise<PublicKey | null> {
   const accountsData = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf-8'))
   return new PublicKey(accountsData['lastProgramId'])
+}
+
+export async function getLastJabberAccount(): Promise<PublicKey | null> {
+  const accountsData = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf-8'))
+  return new PublicKey(accountsData['jabberAccount'])
 }

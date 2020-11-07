@@ -73,7 +73,8 @@ async function main() {
   } else if (action === 'create') {
     await createLocalAccount()
   } else if (action === 'list') {
-    await getLocalAccounts()
+    const accs = await getLocalAccounts()
+    accs.forEach((wallet, i) => console.log(`${i + 1} => ${wallet.publicKey.toBase58()}`))
   } else {
     console.log('Wrong command')
   }

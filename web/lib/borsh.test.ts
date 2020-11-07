@@ -1,6 +1,7 @@
 import { Schema, Layout, toBuffer } from './borsh'
 import { PublicKey } from '@solana/web3.js'
 import _ from 'lodash'
+import BN from 'bn.js'
 
 test('Enum serialize', () => {
   class Character extends Layout {
@@ -145,4 +146,26 @@ test('Option layout', () => {
   }
   const rocket = new Rocket({ location: null })
   expect(rocket.encode()).toEqual(toBuffer(new Uint8Array([0])))
+})
+
+test('Signed numbers', () => {
+  class Temp extends Layout {
+    deg: BN
+
+    static schema: Schema = new Map([
+      [
+        Temp,
+        {
+          kind: 'struct',
+          fields: [['deg', 'i64']],
+        },
+      ],
+    ])
+
+    constructor(prop: Omit<Temp, 'encode'>) {
+      super(Temp.schema, prop)
+    }
+  }
+  const t = new Temp({ deg: new BN(-100) })
+  expect(t.encode()).toEqual(toBuffer(new Uint8Array([156, 255, 255, 255, 255, 255, 255, 255])))
 })

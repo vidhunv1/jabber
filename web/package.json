@@ -17,6 +17,7 @@
     "sol:account:create": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/account.ts create",
     "sol:account:list": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/account.ts list",
     "sol:account:airdrop": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/account.ts airdrop",
+    "sol:state": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/stateData.ts",
     "sol:program:deploy": "yarn build:program && ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/deploy.ts",
     "sol:program:exec": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/execute.ts",
     "sol:program:check": "yarn sol:program:deploy && yarn sol:program:exec"

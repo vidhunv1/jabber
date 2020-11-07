@@ -6,7 +6,7 @@ const textDecoder = new TextDecoder('utf-8', { fatal: true })
 const INITIAL_LENGTH = 1024
 const PK_BYTES = 32 // the length of the public key
 
-type BaseFields = 'u8' | 'u16' | 'u32' | 'u64' | 'string' | 'pk'
+type BaseFields = 'u8' | 'u16' | 'u32' | 'u64' | 'i64' | 'string' | 'pk'
 type FieldType = BaseFields | [number] | [BaseFields]
 export interface StructSchema {
   kind: 'struct'
@@ -70,6 +70,12 @@ export class BinaryWriter {
   }
 
   public write_u64(value: BN) {
+    this.maybe_resize()
+    this.write_buffer(Buffer.from(new BN(value).toArray('le', 8)))
+  }
+
+  public write_i64(value: BN) {
+    // TODO: verify negative numbers
     this.maybe_resize()
     this.write_buffer(Buffer.from(new BN(value).toArray('le', 8)))
   }
@@ -167,6 +173,12 @@ export class BinaryReader {
 
   @handlingRangeError
   read_u64(): BN {
+    const buf = this.read_buffer(8)
+    return new BN(buf, 'le')
+  }
+
+  @handlingRangeError
+  read_i64(): BN {
     const buf = this.read_buffer(8)
     return new BN(buf, 'le')
   }
