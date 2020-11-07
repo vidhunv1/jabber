@@ -1,5 +1,5 @@
 use crate::error::JabberError;
-use crate::state::{jabber_account, Jabber, Message, Profile, PublicKey, Serdes, Thread};
+use crate::state::{Jabber, Message, Profile, Serdes, Thread};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_sdk::{
@@ -23,19 +23,17 @@ pub enum JabberInstruction {
         bio: Option<String>,
         lamports_per_message: Option<u64>,
     },
+
     // 0. `[is_signer]` Sender
     // 1. `[]` Receiver
-    // 2. `[writable]` Senders ThreadInfo account
-    // 3. `[writable]` Receivers ThreadInfo account
-    // 4. `[writable]` Senders UserProfile account
-    // 5. `[]` Receivers UserProfile account
+    // 2. `[writable]` Senders Thread account
+    // 3. `[writable]` Receivers Thread account
+    // 4. `[writable]` Senders Profile account
+    // 5. `[]` Receivers Profile account
     // 6. `[writable]` Message account
-    // 7. `[writable]` Previous Message account
-    // 8. `[writable]` Jabber Account
-    // 9. `[]` SYS_VAR_RENT
-    // 10. `[]` SYS_VAR_CLOCK
-    // 11. `[writable]` Maybe empty. Senders `last_thread_pk`. This should be same as sender.UserProfile.thread_tail_pk
-    // 12. `[writable]` Maybe empty. Receivers `last_thread_pk`. This should be same as receiver.UserProfile.thread_tail_pk or JabberAccount.last_thread_pk if it does not exist.
+    // 7. `[writable]` Jabber Account
+    // 8. `[]` SYS_VAR_RENT
+    // 9. `[]` SYS_VAR_CLOCK
     SendMessage {
         kind: u8,
         msg: String,
@@ -61,15 +59,14 @@ impl JabberInstruction {
                 let s_profile_acc = next_account_info(accounts_iter)?;
                 let r_profile_acc = next_account_info(accounts_iter)?;
                 let msg_acc = next_account_info(accounts_iter)?;
-                let prev_msg_acc = next_account_info(accounts_iter)?;
                 let jabber_acc = next_account_info(accounts_iter)?;
                 let sysvar_rent_acc = next_account_info(accounts_iter)?;
                 let sysvar_clock_acc = next_account_info(accounts_iter)?;
                 if !s_acc.is_signer {
                     return Err(ProgramError::MissingRequiredSignature);
                 }
-
-                if *jabber_acc.key != jabber_account::id() {
+                if *jabber_acc.key != Jabber::get_account(program_id)? {
+                    info!(&format!("Jabber account invalid: {}", *jabber_acc.key));
                     return Err(ProgramError::InvalidAccountData);
                 }
                 if !rent::check_id(sysvar_rent_acc.key) {
@@ -103,8 +100,10 @@ impl JabberInstruction {
                     return Err(JabberError::AccountNotDeterministic.into());
                 }
 
-                let r_msg_count =
-                    Thread::unpack(&r_thread_acc.try_borrow_data()?).map_or(0, |u| u.msg_count);
+                let r_msg_count = match Thread::unpack(&r_thread_acc.try_borrow_data()?) {
+                    Ok(u) => u.msg_count,
+                    _ => 0,
+                };
 
                 // Choose the oldest Thread account.
                 let thread_acc = if r_msg_count > 0 {
@@ -115,9 +114,11 @@ impl JabberInstruction {
                     }
                     s_thread_acc
                 };
+
                 if thread_acc.owner != program_id || s_profile_acc.owner != program_id {
                     return Err(ProgramError::InvalidAccountData);
                 }
+
                 let rent = &Rent::from_account_info(sysvar_rent_acc)?;
                 if !rent.is_exempt(thread_acc.lamports(), thread_acc.data_len()) {
                     return Err(JabberError::AccountNotRentExempt.into());
@@ -148,12 +149,16 @@ impl JabberInstruction {
                 }
 
                 // first time?
-                let prev_msg_pk: Option<PublicKey> = if thread.msg_count == 1 {
+                if thread.msg_count == 1 {
                     thread.u1_pk = s_acc.key.to_bytes();
                     thread.u2_pk = r_acc.key.to_bytes();
 
                     let mut s_data = s_profile_acc.try_borrow_mut_data()?;
                     let mut s = Profile::unpack(&s_data)?;
+                    // Update the thread tail for sender.
+                    thread.prev_thread_u1_pk = s.thread_tail_pk;
+                    s.thread_tail_pk = Some(thread_acc.key.to_bytes());
+                    s.pack(&mut s_data);
 
                     // UserProfile for receiver may not exist
                     let (mut r, r_data) = if r_profile_exists {
@@ -163,45 +168,10 @@ impl JabberInstruction {
                         (Profile::default(), None)
                     };
 
-                    // Change pointer on the previous thread account for sender
-                    if let Some(s_thread_tail) = s.thread_tail_pk {
-                        let s_thread_tail_acc = next_account_info(accounts_iter)?;
-                        if s_thread_tail != s_thread_tail_acc.key.to_bytes() {
-                            return Err(ProgramError::InvalidAccountData);
-                        }
-                        let mut data = s_thread_tail_acc.try_borrow_mut_data()?;
-                        let mut t = Thread::unpack(&data)?;
-                        if t.u1_pk == s_acc.key.to_bytes() {
-                            t.next_thread_u1_pk = Some(thread_acc.key.to_bytes());
-                        } else {
-                            t.next_thread_u2_pk = Some(thread_acc.key.to_bytes());
-                        }
-                        t.pack(&mut data);
-                    }
-
-                    // Change pointer on the previous thread account for receiver
-                    if let Some(r_thread_tail) = r.thread_tail_pk {
-                        let r_thread_tail_acc = next_account_info(accounts_iter)?;
-                        if r_thread_tail != r_thread_tail_acc.key.to_bytes() {
-                            return Err(ProgramError::InvalidAccountData);
-                        }
-                        let mut data = r_thread_tail_acc.try_borrow_mut_data()?;
-                        let mut t = Thread::unpack(&data)?;
-                        if t.u1_pk == s_acc.key.to_bytes() {
-                            t.next_thread_u1_pk = Some(thread_acc.key.to_bytes());
-                        } else {
-                            t.next_thread_u2_pk = Some(thread_acc.key.to_bytes());
-                        }
-                        t.pack(&mut data);
-                    }
-
-                    // Update the thread tail for sender.
-                    s.thread_tail_pk = Some(thread_acc.key.to_bytes());
-                    s.pack(&mut s_data);
-
                     // Update the thread tail for receiver. We add it to the program
                     // root account if their profile does not exist.
                     if r_profile_exists {
+                        thread.prev_thread_u2_pk = r.thread_tail_pk;
                         r.thread_tail_pk = Some(thread_acc.key.to_bytes());
                         let mut d = r_data.unwrap();
                         r.pack(&mut d);
@@ -209,53 +179,15 @@ impl JabberInstruction {
                         // The reciever is not registered, point thread to unregistered users.
                         let mut jabber_data = jabber_acc.try_borrow_mut_data()?;
                         let mut jabber = Jabber::unpack(&jabber_data)?;
-
-                        if let Some(thread_tail) = jabber.unregistered_thread_tail_pk {
-                            let thread_tail_acc = next_account_info(accounts_iter)?;
-                            if thread_tail != thread_tail_acc.key.to_bytes() {
-                                return Err(ProgramError::InvalidAccountData);
-                            }
-
-                            let mut thread_tail_data = thread_tail_acc.try_borrow_mut_data()?;
-                            let mut t = Thread::unpack(&thread_tail_data)?;
-                            if t.u1_pk == s_acc.key.to_bytes() {
-                                t.next_thread_u1_pk = Some(thread_acc.key.to_bytes());
-                            } else {
-                                t.next_thread_u2_pk = Some(thread_acc.key.to_bytes());
-                            }
-                            t.pack(&mut thread_tail_data);
-                        }
+                        thread.prev_thread_u2_pk = jabber.unregistered_thread_tail_pk;
                         jabber.unregistered_thread_tail_pk = Some(thread_acc.key.to_bytes());
                         jabber.pack(&mut jabber_data);
                     }
-
-                    None
-                } else {
-                    let expected_s_prev_msg = Message::create_with_seed(
-                        thread.msg_count - 1,
-                        s_acc.key,
-                        r_acc.key,
-                        program_id,
-                    )?;
-                    let expected_r_prev_msg = Message::create_with_seed(
-                        thread.msg_count - 1,
-                        r_acc.key,
-                        s_acc.key,
-                        program_id,
-                    )?;
-                    if prev_msg_acc.try_data_is_empty()?
-                        || (*prev_msg_acc.key != expected_s_prev_msg)
-                            && (*prev_msg_acc.key != expected_r_prev_msg)
-                    {
-                        return Err(ProgramError::InvalidAccountData);
-                    }
-                    Some(prev_msg_acc.key.to_bytes())
-                };
+                }
                 let message = Message {
                     kind,
                     msg,
                     timestamp: *timestamp,
-                    prev_msg_pk,
                 };
                 let mut message_data = msg_acc.try_borrow_mut_data()?;
                 message.pack(&mut message_data);
@@ -362,10 +294,7 @@ mod test {
         let mut s_profile_data = vec![0; Profile::MIN_SPACE];
         let mut r_profile_data = vec![0];
         let mut msg_data = vec![0; 100];
-        let mut prev_msg_data = vec![0];
         let mut jabber_data = vec![0; 100];
-        let mut s_last_thread_data = vec![0];
-        let mut r_last_thread_data = vec![0];
         let mut pks = [rand_pk(), rand_pk(), rand_pk(), rand_pk(), rand_pk()];
         send_message(
             String::from("Hey!"),
@@ -378,10 +307,7 @@ mod test {
             &mut s_profile_data,
             &mut r_profile_data,
             &mut msg_data,
-            &mut prev_msg_data,
             &mut jabber_data,
-            &mut s_last_thread_data,
-            &mut r_last_thread_data,
         );
 
         let msg = Message::unpack(&msg_data).unwrap();
@@ -389,27 +315,25 @@ mod test {
             kind: 10,
             msg: String::from("Hey!"),
             timestamp: 0,
-            prev_msg_pk: None,
         };
         let jabber = Jabber::unpack(&jabber_data).unwrap();
         let s_thread = Thread::unpack(&s_thread_data).unwrap();
         let expected_s_thread = Thread {
             msg_count: 2,
-            next_thread_u1_pk: None,
-            next_thread_u2_pk: None,
+            prev_thread_u1_pk: None,
+            prev_thread_u2_pk: None,
             u1_pk: pks[1].to_bytes(),
             u2_pk: pks[2].to_bytes(),
         };
         let thread_pk = Thread::create_with_seed(&pks[1], &pks[2], &pks[0]).unwrap();
-        assert_eq!(expected_msg, msg);
+        assert_eq!(expected_msg, msg, "Test message");
         assert_eq!(
             jabber.unregistered_thread_tail_pk,
-            Some(thread_pk.to_bytes())
+            Some(thread_pk.to_bytes()),
+            "Test jabber tail thread"
         );
-        assert_eq!(expected_s_thread, s_thread);
+        assert_eq!(expected_s_thread, s_thread, "Test s_thread");
 
-        // Send another message
-        prev_msg_data = msg_data;
         msg_data = vec![0; 100];
         send_message(
             String::from("What's up?"),
@@ -422,10 +346,7 @@ mod test {
             &mut s_profile_data,
             &mut r_profile_data,
             &mut msg_data,
-            &mut prev_msg_data,
             &mut jabber_data,
-            &mut s_last_thread_data,
-            &mut r_last_thread_data,
         );
 
         let msg = Message::unpack(&msg_data).unwrap();
@@ -433,18 +354,13 @@ mod test {
             kind: 10,
             msg: String::from("What's up?"),
             timestamp: 0,
-            prev_msg_pk: Some(
-                Message::create_with_seed(1, &pks[1], &pks[2], &pks[0])
-                    .unwrap()
-                    .to_bytes(),
-            ),
         };
         let jabber = Jabber::unpack(&jabber_data).unwrap();
         let s_thread = Thread::unpack(&s_thread_data).unwrap();
         let expected_s_thread = Thread {
             msg_count: 3,
-            next_thread_u1_pk: None,
-            next_thread_u2_pk: None,
+            prev_thread_u1_pk: None,
+            prev_thread_u2_pk: None,
             u1_pk: pks[1].to_bytes(),
             u2_pk: pks[2].to_bytes(),
         };
@@ -462,7 +378,6 @@ mod test {
         let thread_pk = Thread::create_with_seed(&pks[1], &pks[2], &pks[0]).unwrap();
         r_profile_data = vec![0; Profile::MIN_SPACE];
         Profile::default().pack(&mut r_profile_data);
-        prev_msg_data = msg_data;
         msg_data = vec![0; 100];
         send_message(
             String::from("bye"),
@@ -475,10 +390,7 @@ mod test {
             &mut s_profile_data,
             &mut r_profile_data,
             &mut msg_data,
-            &mut prev_msg_data,
             &mut jabber_data,
-            &mut s_last_thread_data,
-            &mut r_last_thread_data,
         );
         let mut expected_r_profile = Profile::default();
         expected_r_profile.thread_tail_pk = Some(thread_pk.to_bytes());
@@ -489,8 +401,8 @@ mod test {
         r_thread_data = vec![0; Thread::MIN_SPACE];
         Thread {
             msg_count: 2,
-            next_thread_u1_pk: None,
-            next_thread_u2_pk: None,
+            prev_thread_u1_pk: None,
+            prev_thread_u2_pk: None,
             u1_pk: pks[1].to_bytes(),
             u2_pk: pks[2].to_bytes(),
         }
@@ -507,10 +419,7 @@ mod test {
             &mut s_profile_data,
             &mut r_profile_data,
             &mut msg_data,
-            &mut prev_msg_data,
             &mut jabber_data,
-            &mut s_last_thread_data,
-            &mut r_last_thread_data,
         );
         assert_eq!(Thread::unpack(&r_thread_data).unwrap().msg_count, 3);
 
@@ -527,10 +436,7 @@ mod test {
         mut s_profile_data: &mut Vec<u8>,
         mut r_profile_data: &mut Vec<u8>,
         mut msg_data: &mut Vec<u8>,
-        mut prev_msg_data: &mut Vec<u8>,
         mut jabber_data: &mut Vec<u8>,
-        mut s_last_thread_data: &mut Vec<u8>,
-        mut r_last_thread_data: &mut Vec<u8>,
     ) {
         let mut pks_iter = pks.iter();
         let program_id = pks_iter.next().unwrap();
@@ -601,20 +507,8 @@ mod test {
             &mut msg_data,
         );
         let mut lamports = 0;
-        let prev_message_pk =
-            Message::create_with_seed(msg_index - 1, &s_pk, &r_pk, &program_id).unwrap();
+        let jabber_pk = Jabber::get_account(program_id).unwrap();
         // 7
-        let prev_message_acc = create_account(
-            false,
-            false,
-            &prev_message_pk,
-            &owner,
-            &mut lamports,
-            &mut prev_msg_data,
-        );
-        let mut lamports = 0;
-        let jabber_pk = jabber_account::id();
-        // 8
         let jabber_acc = create_account(
             false,
             false,
@@ -632,7 +526,7 @@ mod test {
         let rent_account = rent.create_account(1);
         let rent_pubkey = solana_sdk::sysvar::rent::id();
         let mut rent_tuple = (rent_pubkey, rent_account);
-        // 9
+        // 8
         let rent_info = AccountInfo::from(&mut rent_tuple);
 
         let c = solana_sdk::clock::Clock::default();
@@ -640,29 +534,6 @@ mod test {
         let clock_pubkey = solana_sdk::sysvar::clock::id();
         let mut clock_tuple = (clock_pubkey, clock_account);
         let clock_info = AccountInfo::from(&mut clock_tuple);
-
-        let mut lamports = 0;
-        let s_last_thread_pk = pks_iter.next().unwrap();
-        // 9
-        let s_last_thread_acc = create_account(
-            false,
-            false,
-            &s_last_thread_pk,
-            &owner,
-            &mut lamports,
-            &mut s_last_thread_data,
-        );
-        let mut lamports = 0;
-        let r_last_thread_pk = pks_iter.next().unwrap();
-        // 10
-        let r_last_thread_acc = create_account(
-            false,
-            false,
-            &r_last_thread_pk,
-            &owner,
-            &mut lamports,
-            &mut r_last_thread_data,
-        );
         let accounts = [
             s_acc,
             r_acc,
@@ -671,12 +542,9 @@ mod test {
             s_profile_acc,
             r_profile_acc,
             message_acc,
-            prev_message_acc,
             jabber_acc,
             rent_info.clone(),
             clock_info.clone(),
-            s_last_thread_acc,
-            r_last_thread_acc,
         ];
 
         let instruction = JabberInstruction::SendMessage { kind: 10, msg };

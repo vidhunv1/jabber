@@ -46,8 +46,8 @@ impl Serdes for Profile {}
 #[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq)]
 pub struct Thread {
     pub msg_count: u32,
-    pub next_thread_u1_pk: Option<PublicKey>,
-    pub next_thread_u2_pk: Option<PublicKey>,
+    pub prev_thread_u1_pk: Option<PublicKey>,
+    pub prev_thread_u2_pk: Option<PublicKey>,
     pub u1_pk: PublicKey,
     pub u2_pk: PublicKey,
 }
@@ -72,7 +72,6 @@ pub struct Message {
     pub kind: u8,
     pub msg: String,
     pub timestamp: UnixTimestamp,
-    pub prev_msg_pk: Option<PublicKey>,
 }
 impl Message {
     pub fn create_with_seed(
@@ -96,8 +95,12 @@ pub struct Jabber {
     pub unregistered_thread_tail_pk: Option<PublicKey>,
 }
 impl Serdes for Jabber {}
-
-pub mod jabber_account {
+impl Jabber {
+    pub fn get_account(program_id: &Pubkey) -> Result<Pubkey, PubkeyError> {
+        Pubkey::create_with_seed(&owner_account::id(), "jabber", program_id)
+    }
+}
+pub mod owner_account {
     use solana_sdk::declare_id;
     declare_id!("D2T7LaEp7SgQCZWvxbMfWym6LW2cSfX69oXpFLCDqbVS");
 }
