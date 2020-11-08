@@ -1,4 +1,4 @@
-import { Profile, Jabber, Thread, Message, MessageKind } from './state'
+import { Profile, Jabber, Thread, Message, MessageKind, JabberError, JabberErrorType } from './state'
 import {
   PublicKey,
   Account,
@@ -14,25 +14,7 @@ import {
 import { sendAndConfirmTransaction } from './solana'
 import { InstructionData, Instruction, InstructionType } from './instruction'
 import BN from 'bn.js'
-import ed2curve from '../lib/ed2curve'
-import nacl from 'tweetnacl'
 
-enum JabberErrorType {
-  ProfileNotFound,
-  InvalidMessage,
-}
-const eText: Record<JabberErrorType, string> = {
-  [JabberErrorType.ProfileNotFound]: 'Profile does not exist',
-  [JabberErrorType.InvalidMessage]: 'Invalid message',
-}
-
-class JabberError extends Error {
-  code: JabberErrorType
-  constructor(e: JabberErrorType) {
-    super(eText[e])
-    this.code = e
-  }
-}
 const readUserProfile = async (
   connection: Connection,
   userPk: PublicKey,
@@ -108,52 +90,6 @@ const readProfile = async (
     return Profile.decode<Profile>(Profile.schema, Profile, profileData.data)
   }
   return null
-}
-
-const parseMessage = (
-  kind: MessageKind,
-  msg: Uint8Array,
-  messagePk: PublicKey,
-  account: Account,
-  otherPk: PublicKey,
-): string => {
-  if (kind === MessageKind.PlainUtf8) {
-    // plaintext
-    return Buffer.from(msg).toString('utf-8')
-  } else if (kind === MessageKind.EncryptedUtf8) {
-    // encrypted message
-    const nonce = new Uint8Array(messagePk.toBuffer()).slice(0, 24)
-    return Buffer.from(decryptMessage(msg, account, otherPk, nonce)).toString('utf-8')
-  }
-  throw new JabberError(JabberErrorType.InvalidMessage)
-}
-
-const encodeMessage = (
-  kind: MessageKind,
-  msg: Uint8Array,
-  messagePk: PublicKey,
-  sAccount: Account,
-  rPublicKey: PublicKey,
-): Uint8Array => {
-  if (kind === MessageKind.PlainUtf8) {
-    return msg
-  } else if (kind === MessageKind.EncryptedUtf8) {
-    const nonce = new Uint8Array(messagePk.toBuffer()).slice(0, 24)
-    return encryptMessage(msg, sAccount, rPublicKey, nonce)
-  }
-  throw new JabberError(JabberErrorType.InvalidMessage)
-}
-
-const encryptMessage = (msg: Uint8Array, sAccount: Account, rPublicKey: PublicKey, nonce: Uint8Array): Uint8Array => {
-  const dhKeys = ed2curve.convertKeyPair({ publicKey: sAccount.publicKey.toBuffer(), secretKey: sAccount.secretKey })
-  const dhrPk = ed2curve.convertPublicKey(rPublicKey)
-  return nacl.box(msg, nonce, dhrPk, dhKeys.secretKey)
-}
-
-const decryptMessage = (msg: Uint8Array, account: Account, fromPk: PublicKey, nonce: Uint8Array): Uint8Array => {
-  const dhKeys = ed2curve.convertKeyPair({ publicKey: account.publicKey.toBuffer(), secretKey: account.secretKey })
-  const dhrPk = ed2curve.convertPublicKey(fromPk)
-  return nacl.box.open(msg, nonce, dhrPk, dhKeys.secretKey)
 }
 
 const getMessages = async (
@@ -336,7 +272,13 @@ const sendMessage = async (
 
   // create the message
   const messageKey = await Message.createWithSeed(messageIndex, senderAccount.publicKey, receiverPk, programId)
-  const msgU8 = encodeMessage(kind, new Uint8Array(Buffer.from(msg, 'utf8')), messageKey, senderAccount, receiverPk)
+  const msgU8 = Message.encodeMessage(
+    kind,
+    new Uint8Array(Buffer.from(msg, 'utf8')),
+    messageKey,
+    senderAccount,
+    receiverPk,
+  )
   // dummy to get byteLength
   const msgDummy = new Message({
     kind,
@@ -397,7 +339,4 @@ export {
   setUserProfile,
   sendMessage,
   getThreads,
-  parseMessage,
-  encryptMessage,
-  decryptMessage,
 }

@@ -1,11 +1,11 @@
-import { setUserProfile, sendMessage, getMessages, getThreads, parseMessage } from '../lib/jabber'
+import { setUserProfile, sendMessage, getMessages, getThreads } from '../lib/jabber'
 import { Connection, PublicKey, Account, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { RPC_URL } from './config'
 import { getLocalAccounts, getLocalAccount, getLastProgramId } from './store'
 import BN from 'bn.js'
 import { sendAndConfirmTransaction } from '../lib/solana'
 import _uniqBy from 'lodash/uniqBy'
-import { MessageKind } from '../lib/state'
+import { MessageKind, Message } from '../lib/state'
 const parseAccountAndProgram = async (
   arg1: string,
   arg2: string,
@@ -93,7 +93,7 @@ async function main() {
 
     msgs.forEach((msg) => {
       if (msg) {
-        const m: string = parseMessage(msg.msg.kind, new Uint8Array(msg.msg.msg), msg.pk, userAccount, rPk)
+        const m: string = Message.parseMessage(msg.msg.kind, new Uint8Array(msg.msg.msg), msg.pk, userAccount, rPk)
         console.log(
           `${msg.id}: ${msg.isOwnMsg} ${msg.msg.kind} ${m}, at ${new Date(
             msg.msg.timestamp.toNumber() * 1000,

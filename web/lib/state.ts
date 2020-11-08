@@ -1,6 +1,24 @@
 import { Layout, Schema } from './borsh'
 import BN from 'bn.js'
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, Account } from '@solana/web3.js'
+import { encryptMessage, decryptMessage } from './enc'
+
+export enum JabberErrorType {
+  ProfileNotFound,
+  InvalidMessage,
+}
+const eText: Record<JabberErrorType, string> = {
+  [JabberErrorType.ProfileNotFound]: 'Profile does not exist',
+  [JabberErrorType.InvalidMessage]: 'Invalid message',
+}
+
+export class JabberError extends Error {
+  code: JabberErrorType
+  constructor(e: JabberErrorType) {
+    super(eText[e])
+    this.code = e
+  }
+}
 
 const MAX_SEED_LEN = 32
 export type ProfileType = Omit<Profile, 'encode'>
@@ -112,6 +130,40 @@ export class Message extends Layout {
 
   static createWithSeed(index: number, from: PublicKey, to: PublicKey, programId: PublicKey): Promise<PublicKey> {
     return PublicKey.createWithSeed(from, Message.getSeed(index, to), programId)
+  }
+
+  static parseMessage(
+    kind: MessageKind,
+    msg: Uint8Array,
+    messagePk: PublicKey,
+    account: Account,
+    otherPk: PublicKey,
+  ): string {
+    if (kind === MessageKind.PlainUtf8) {
+      // plaintext
+      return Buffer.from(msg).toString('utf-8')
+    } else if (kind === MessageKind.EncryptedUtf8) {
+      // encrypted message
+      const nonce = new Uint8Array(messagePk.toBuffer()).slice(0, 24)
+      return Buffer.from(decryptMessage(msg, account, otherPk, nonce)).toString('utf-8')
+    }
+    throw new JabberError(JabberErrorType.InvalidMessage)
+  }
+
+  static encodeMessage(
+    kind: MessageKind,
+    msg: Uint8Array,
+    messagePk: PublicKey,
+    sAccount: Account,
+    rPublicKey: PublicKey,
+  ): Uint8Array {
+    if (kind === MessageKind.PlainUtf8) {
+      return msg
+    } else if (kind === MessageKind.EncryptedUtf8) {
+      const nonce = new Uint8Array(messagePk.toBuffer()).slice(0, 24)
+      return encryptMessage(msg, sAccount, rPublicKey, nonce)
+    }
+    throw new JabberError(JabberErrorType.InvalidMessage)
   }
 }
 
