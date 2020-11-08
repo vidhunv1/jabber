@@ -70,7 +70,7 @@ impl Thread {
 #[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq)]
 pub struct Message {
     pub kind: u8,
-    pub msg: String,
+    pub msg: Vec<u8>,
     pub timestamp: UnixTimestamp,
 }
 impl Message {

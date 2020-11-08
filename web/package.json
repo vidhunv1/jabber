@@ -20,7 +20,8 @@
     "sol:state": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/stateData.ts",
     "sol:program:deploy": "yarn build:program && ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/deploy.ts",
     "sol:program:exec": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/execute.ts",
-    "sol:program:check": "yarn sol:program:deploy && yarn sol:program:exec"
+    "sol:program:check": "yarn sol:program:deploy && yarn sol:program:exec",
+    "sol:scratchpad": "ts-node --compiler-options={\\\"module\\\":\\\"commonJS\\\"} cli/scratchpad.ts info"
   },
   "dependencies": {
     "@solana/web3.js": "^0.82.0",
@@ -29,7 +30,8 @@
     "lodash": "^4.17.20",
     "next": "9.5.5",
     "react": "16.14.0",
-    "react-dom": "16.14.0"
+    "react-dom": "16.14.0",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@types/jest": "^26.0.15",

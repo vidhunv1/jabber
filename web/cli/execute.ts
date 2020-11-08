@@ -1,10 +1,11 @@
-import { setUserProfile, sendMessage, getMessages, getThreads } from '../lib/jabber'
+import { setUserProfile, sendMessage, getMessages, getThreads, parseMessage } from '../lib/jabber'
 import { Connection, PublicKey, Account, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { RPC_URL } from './config'
 import { getLocalAccounts, getLocalAccount, getLastProgramId } from './store'
 import BN from 'bn.js'
 import { sendAndConfirmTransaction } from '../lib/solana'
 import _uniqBy from 'lodash/uniqBy'
+import { MessageKind } from '../lib/state'
 const parseAccountAndProgram = async (
   arg1: string,
   arg2: string,
@@ -63,18 +64,16 @@ async function main() {
       process.exit(1)
     }
     const { userAccount, programPk } = await parseAccountAndProgram(process.argv[5], process.argv[6])
-    const ownerAcc = (await getLocalAccounts())[0]
     const prevBalance = await getLamports(connection, userAccount.publicKey)
     const receiverPk = new PublicKey(process.argv[4])
     console.log(`Sending message from: ${userAccount.publicKey.toString()}, to: ${receiverPk.toString()}`)
     const tx = await sendMessage(
       connection,
-      ownerAcc.publicKey,
       userAccount,
       receiverPk,
       programPk,
       process.argv[3],
-      10,
+      MessageKind.EncryptedUtf8,
     )
     await sendAndConfirmTransaction('SendMessage', connection, tx, userAccount)
 
@@ -94,7 +93,12 @@ async function main() {
 
     msgs.forEach((msg) => {
       if (msg) {
-        console.log(`${msg.id}: ${msg.isOwnMsg} ${msg.msg.msg},  at ${msg.msg.timestamp.toString(10)}`)
+        const m: string = parseMessage(msg.msg.kind, new Uint8Array(msg.msg.msg), msg.pk, userAccount, rPk)
+        console.log(
+          `${msg.id}: ${msg.isOwnMsg} ${msg.msg.kind} ${m}, at ${new Date(
+            msg.msg.timestamp.toNumber() * 1000,
+          ).toString()}`,
+        )
       } else {
         console.log(`${msg.id}: Deleted`)
       }

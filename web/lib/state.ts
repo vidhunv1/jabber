@@ -77,10 +77,14 @@ export class Thread extends Layout {
   }
 }
 
+export enum MessageKind {
+  PlainUtf8 = 10,
+  EncryptedUtf8 = 11,
+}
 export type MessageType = Omit<Message, 'encode'>
 export class Message extends Layout {
-  kind: number
-  msg: string
+  kind: MessageKind
+  msg: Uint8Array
   timestamp: BN
 
   static schema: Schema = new Map([
@@ -90,7 +94,7 @@ export class Message extends Layout {
         kind: 'struct',
         fields: [
           ['kind', 'u8'],
-          ['msg', 'string'],
+          ['msg', ['u8']],
           ['timestamp', 'i64'],
         ],
       },

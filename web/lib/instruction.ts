@@ -46,7 +46,7 @@ export class InstructionData extends Layout {
           kind: 'struct',
           fields: [
             ['kind', 'u8'],
-            ['msg', 'string'],
+            ['msg', ['u8']],
           ],
         },
       ],

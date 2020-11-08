@@ -36,7 +36,7 @@ pub enum JabberInstruction {
     // 9. `[]` SYS_VAR_CLOCK
     SendMessage {
         kind: u8,
-        msg: String,
+        msg: Vec<u8>,
     },
 }
 
@@ -306,7 +306,7 @@ mod test {
         let msg = Message::unpack(&msg_data).unwrap();
         let expected_msg = Message {
             kind: 10,
-            msg: String::from("Hey!"),
+            msg: String::from("Hey!").into_bytes(),
             timestamp: 0,
         };
         let jabber = Jabber::unpack(&jabber_data).unwrap();
@@ -345,7 +345,7 @@ mod test {
         let msg = Message::unpack(&msg_data).unwrap();
         let expected_msg = Message {
             kind: 10,
-            msg: String::from("What's up?"),
+            msg: String::from("What's up?").into_bytes(),
             timestamp: 0,
         };
         let jabber = Jabber::unpack(&jabber_data).unwrap();
@@ -540,7 +540,10 @@ mod test {
             clock_info.clone(),
         ];
 
-        let instruction = JabberInstruction::SendMessage { kind: 10, msg };
+        let instruction = JabberInstruction::SendMessage {
+            kind: 10,
+            msg: msg.into_bytes(),
+        };
         JabberInstruction::process(&program_id, &accounts, &instruction.try_to_vec().unwrap())
             .unwrap();
     }

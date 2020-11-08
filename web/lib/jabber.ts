@@ -1,4 +1,4 @@
-import { Profile, Jabber, Thread, Message } from './state'
+import { Profile, Jabber, Thread, Message, MessageKind } from './state'
 import {
   PublicKey,
   Account,
@@ -14,12 +14,16 @@ import {
 import { sendAndConfirmTransaction } from './solana'
 import { InstructionData, Instruction, InstructionType } from './instruction'
 import BN from 'bn.js'
+import ed2curve from '../lib/ed2curve'
+import nacl from 'tweetnacl'
 
 enum JabberErrorType {
   ProfileNotFound,
+  InvalidMessage,
 }
 const eText: Record<JabberErrorType, string> = {
   [JabberErrorType.ProfileNotFound]: 'Profile does not exist',
+  [JabberErrorType.InvalidMessage]: 'Invalid message',
 }
 
 class JabberError extends Error {
@@ -106,6 +110,52 @@ const readProfile = async (
   return null
 }
 
+const parseMessage = (
+  kind: MessageKind,
+  msg: Uint8Array,
+  messagePk: PublicKey,
+  account: Account,
+  otherPk: PublicKey,
+): string => {
+  if (kind === MessageKind.PlainUtf8) {
+    // plaintext
+    return Buffer.from(msg).toString('utf-8')
+  } else if (kind === MessageKind.EncryptedUtf8) {
+    // encrypted message
+    const nonce = new Uint8Array(messagePk.toBuffer()).slice(0, 24)
+    return Buffer.from(decryptMessage(msg, account, otherPk, nonce)).toString('utf-8')
+  }
+  throw new JabberError(JabberErrorType.InvalidMessage)
+}
+
+const encodeMessage = (
+  kind: MessageKind,
+  msg: Uint8Array,
+  messagePk: PublicKey,
+  sAccount: Account,
+  rPublicKey: PublicKey,
+): Uint8Array => {
+  if (kind === MessageKind.PlainUtf8) {
+    return msg
+  } else if (kind === MessageKind.EncryptedUtf8) {
+    const nonce = new Uint8Array(messagePk.toBuffer()).slice(0, 24)
+    return encryptMessage(msg, sAccount, rPublicKey, nonce)
+  }
+  throw new JabberError(JabberErrorType.InvalidMessage)
+}
+
+const encryptMessage = (msg: Uint8Array, sAccount: Account, rPublicKey: PublicKey, nonce: Uint8Array): Uint8Array => {
+  const dhKeys = ed2curve.convertKeyPair({ publicKey: sAccount.publicKey.toBuffer(), secretKey: sAccount.secretKey })
+  const dhrPk = ed2curve.convertPublicKey(rPublicKey)
+  return nacl.box(msg, nonce, dhrPk, dhKeys.secretKey)
+}
+
+const decryptMessage = (msg: Uint8Array, account: Account, fromPk: PublicKey, nonce: Uint8Array): Uint8Array => {
+  const dhKeys = ed2curve.convertKeyPair({ publicKey: account.publicKey.toBuffer(), secretKey: account.secretKey })
+  const dhrPk = ed2curve.convertPublicKey(fromPk)
+  return nacl.box.open(msg, nonce, dhrPk, dhKeys.secretKey)
+}
+
 const getMessages = async (
   connection: Connection,
   sPk: PublicKey,
@@ -113,7 +163,7 @@ const getMessages = async (
   programId: PublicKey,
   limit: number,
   startBefore?: number,
-): Promise<{ isOwnMsg: boolean; msg: Message | null; id: number }[]> => {
+): Promise<{ isOwnMsg: boolean; msg: Message | null; id: number; pk: PublicKey }[]> => {
   const thread = await readThread(connection, sPk, rPk, programId)
   if (thread == null) {
     return []
@@ -121,15 +171,27 @@ const getMessages = async (
 
   startBefore = startBefore == null || startBefore > thread.msgCount - 1 ? thread.msgCount - 1 : startBefore
   let msgData1: AccountInfo<Buffer>, msgData2: AccountInfo<Buffer>
-  const out: { isOwnMsg: boolean; msg: Message; id: number }[] = []
+  const out: { isOwnMsg: boolean; msg: Message; id: number; pk: PublicKey }[] = []
   for (let i = startBefore; i >= startBefore - limit && i > 0; i--) {
-    msgData1 = await connection.getAccountInfo(await Message.createWithSeed(i, sPk, rPk, programId))
-    msgData2 = await connection.getAccountInfo(await Message.createWithSeed(i, rPk, sPk, programId))
+    const msg1Pk = await Message.createWithSeed(i, sPk, rPk, programId)
+    const msg2Pk = await Message.createWithSeed(i, rPk, sPk, programId)
+    msgData1 = await connection.getAccountInfo(msg1Pk)
+    msgData2 = await connection.getAccountInfo(msg2Pk)
 
     if (msgData1) {
-      out.push({ isOwnMsg: true, msg: Message.decode<Message>(Message.schema, Message, msgData1.data), id: i })
+      out.push({
+        isOwnMsg: true,
+        msg: Message.decode<Message>(Message.schema, Message, msgData1.data),
+        id: i,
+        pk: msg1Pk,
+      })
     } else if (msgData2) {
-      out.push({ isOwnMsg: false, msg: Message.decode<Message>(Message.schema, Message, msgData2.data), id: i })
+      out.push({
+        isOwnMsg: false,
+        msg: Message.decode<Message>(Message.schema, Message, msgData2.data),
+        id: i,
+        pk: msg2Pk,
+      })
     } else {
       out.push(null)
     }
@@ -232,12 +294,11 @@ const setUserProfile = async (
 
 const sendMessage = async (
   connection: Connection,
-  ownerPk: PublicKey,
   senderAccount: Account,
   receiverPk: PublicKey,
   programId: PublicKey,
   msg: string,
-  kind: number,
+  kind: MessageKind,
 ): Promise<Transaction> => {
   const senderPk = senderAccount.publicKey
   const jabberKey = await Jabber.createWithSeed(programId)
@@ -275,10 +336,11 @@ const sendMessage = async (
 
   // create the message
   const messageKey = await Message.createWithSeed(messageIndex, senderAccount.publicKey, receiverPk, programId)
+  const msgU8 = encodeMessage(kind, new Uint8Array(Buffer.from(msg, 'utf8')), messageKey, senderAccount, receiverPk)
   // dummy to get byteLength
   const msgDummy = new Message({
     kind,
-    msg,
+    msg: msgU8,
     timestamp: new BN(+new Date()),
   }).encode()
 
@@ -297,7 +359,11 @@ const sendMessage = async (
     })
     await sendAndConfirmTransaction('createMessage', connection, new Transaction().add(createTx), senderAccount)
   }
-  const instructionDataBuf = new InstructionData(InstructionType.SendMessage, { kind, msg }).encode()
+
+  const instructionDataBuf = new InstructionData(InstructionType.SendMessage, {
+    kind,
+    msg: msgU8,
+  }).encode()
   const instruction = new TransactionInstruction({
     keys: [
       { pubkey: senderAccount.publicKey, isSigner: true, isWritable: false },
@@ -331,4 +397,7 @@ export {
   setUserProfile,
   sendMessage,
   getThreads,
+  parseMessage,
+  encryptMessage,
+  decryptMessage,
 }
