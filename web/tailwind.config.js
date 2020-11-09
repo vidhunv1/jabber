@@ -3,6 +3,9 @@ module.exports = {
   theme: {
     extend: {
       colors: {},
+      fontFamily: {
+        sans: ['CascadiaCode', 'Helvetica', 'Arial', 'sans-serif'],
+      },
     },
   },
   variants: {},

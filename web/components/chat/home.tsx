@@ -1,9 +1,7 @@
 import React from 'react'
-import Page from '../components/page'
-import Container from '../components/container'
 import { PublicKey } from '@solana/web3.js'
-import Avatar from '../components/chat/avatar'
-import Threads from '../components/chat/threads'
+import Avatar from './avatar'
+import Threads from './threads'
 
 const threads = [
   {
@@ -40,21 +38,12 @@ export const ChatHome = () => (
     <div className="px-3 py-2">
       <input
         className="bg-gray-300 appearance-none border-1 rounded w-full py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:bg-gray-200 focus:border-gray-400"
+        id="inline-full-name"
         type="text"
         placeholder="Search"
         value=""
-      ></input>
+      />
     </div>
     <Threads list={threads} />
   </div>
 )
-
-const Home = () => (
-  <Page>
-    <Container>
-      <ChatHome />
-    </Container>
-  </Page>
-)
-
-export default Home
