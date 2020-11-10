@@ -1,6 +1,7 @@
 import { sendAndConfirmTransaction as realSendAndConfirmTransaction, PublicKey } from '@solana/web3.js'
 import type { Account, Connection, Transaction } from '@solana/web3.js'
 import YAML from 'json-to-pretty-yaml'
+import appConfig from '../config'
 
 type TransactionNotification = (a: string, b: string) => void
 
@@ -58,4 +59,13 @@ export async function airdrop(connection: Connection, pubkey: string, lamports: 
     console.log('Airdrop retry ' + retries)
   }
   throw new Error(`Airdrop of ${lamports} failed`)
+}
+
+export const isPublicKey = (pk: string): boolean => {
+  try {
+    new PublicKey(pk)
+    return true
+  } catch (e) {
+    return false
+  }
 }

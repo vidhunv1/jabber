@@ -46,10 +46,11 @@ export class Profile extends Layout {
   ])
 
   constructor(u: ProfileType) {
-    if (u.bio.length > 160 || u.name.length > 50) {
+    if ((u.bio && u.bio.length > 160) || (u.name && u.name.length > 50)) {
       throw new Error('Invalid profile input')
     }
-    super(Profile.schema, u)
+    super(Profile.schema)
+    Layout.assign(this, u)
   }
 
   static createWithSeed(userPk: PublicKey, programId: PublicKey): Promise<PublicKey> {
@@ -83,7 +84,8 @@ export class Thread extends Layout {
   ])
 
   constructor(u: ThreadType) {
-    super(Thread.schema, u)
+    super(Thread.schema)
+    Layout.assign(this, u)
   }
 
   static getSeed(friend: PublicKey) {
@@ -120,7 +122,8 @@ export class Message extends Layout {
   ])
 
   constructor(u: MessageType) {
-    super(Message.schema, u)
+    super(Message.schema)
+    Layout.assign(this, u)
   }
 
   static getSeed(index: number, to: PublicKey) {
@@ -185,7 +188,8 @@ export class Jabber extends Layout {
   ])
 
   constructor(u: JabberType) {
-    super(Jabber.schema, u)
+    super(Jabber.schema)
+    Layout.assign(this, u)
   }
 
   static createWithSeed(programId: PublicKey) {

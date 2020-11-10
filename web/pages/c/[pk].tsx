@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react'
-import Avatar from '../../components/chat/avatar'
+import React, { useState, useEffect } from 'react'
+import { Avatar, MessageList } from '../../components/chat'
 import { PublicKey } from '@solana/web3.js'
 import Page from '../../components/page'
 import Container from '../../components/container'
@@ -8,18 +8,8 @@ import Error from 'next/error'
 import { faChevronLeft, faPaperPlane } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import cn from 'classnames'
-import { ChatFeed, Message } from 'react-chat-ui'
-
-const isPublicKey = (pk: string): boolean => {
-  try {
-    new PublicKey(pk)
-    console.log('TRUE')
-    return true
-  } catch (e) {
-    console.log('FALSE')
-    return false
-  }
-}
+import Link from 'next/link'
+import { isPublicKey } from '../../lib/solana'
 
 const formatPk = (pk: PublicKey) => {
   const s = pk.toString()
@@ -27,46 +17,67 @@ const formatPk = (pk: PublicKey) => {
 }
 
 const Header = ({ userPk, name }: { userPk: PublicKey; name?: string }) => {
-  const router = useRouter()
   return (
     <header className="flex justify-between text-black h-16 items-center border-b border-gray-300 px-2">
-      <button className="h-12 focus:outline-none" onClick={() => router.back()}>
-        <FontAwesomeIcon icon={faChevronLeft} className="text-gray-700 mr-6" size="2x" />
-      </button>
-      <div className="text-center">
-        <div className="text-lg">{name || formatPk(userPk)}</div>
-        {name && <div className="text-gray-500 text-sm">{formatPk(userPk)}</div>}
-      </div>
+      <Link href="/">
+        <a>
+          <FontAwesomeIcon icon={faChevronLeft} className="text-gray-700 mr-6 h-12 w-12 cursor-pointer" size="2x" />
+        </a>
+      </Link>
+      <a href={`https://explorer.solana.com/address/${userPk.toString()}`}>
+        <div className="text-center">
+          <div className="text-lg">{name || formatPk(userPk)}</div>
+          {name && <div className="text-gray-500 text-sm hover:underline">{formatPk(userPk)}</div>}
+        </div>
+      </a>
       <Avatar className="w-10 h-10" seed={userPk.toString()} />
     </header>
   )
 }
-const messages1 = [
-  new Message({
-    id: 1,
-    message: 'Sample message',
-  }),
-  new Message({
-    id: 0,
-    message: 'Sample message',
-  }),
-  new Message({
-    id: 0,
-    message: 'Message',
-  }),
-]
 
 const Chat = () => {
   const [oMsg, setOMsg] = useState<string>('')
-  const msgEndEl = useRef(null)
+  const [msgs, setMsgs] = useState([])
   const router = useRouter()
   const { pk } = router.query
   const key = Array.isArray(pk) ? pk[0] : pk
   const isPk = isPublicKey(key)
 
   useEffect(() => {
-    msgEndEl.current.scrollIntoView({ behavior: 'auto', block: 'end', inline: 'end' })
+    const m = []
+    for (let i = 0; i <= 20; i++) {
+      m.push(
+        i % 2 == 0
+          ? {
+              id: 1,
+              message:
+                i +
+                '==> sSample messageSample messageSampleSample messageSample messageSampleSample messageSample messageSampleSample messageSample messageSampleSample messageSample messageSample',
+            }
+          : {
+              id: 0,
+              message: i + '<==> Sample messageSample messageSample ',
+            },
+      )
+    }
+    setMsgs(m)
   }, [])
+
+  const addMessage = () => {
+    const m = [...msgs]
+    m.push({
+      id: 0,
+      message: oMsg,
+    })
+    setOMsg('')
+    setMsgs(m)
+  }
+
+  const handleKeyDown = (event: any) => {
+    if (event.key === 'Enter') {
+      addMessage()
+    }
+  }
 
   if (!isPk) {
     return <Error statusCode={404} title={`Public key ${key} is invalid`} />
@@ -76,35 +87,11 @@ const Chat = () => {
     <Page>
       <Container>
         <Header userPk={new PublicKey(key)} name="Vidhun" />
-        <style jsx>{`
-          .chat {
-            height: 78vh;
-          }
-        `}</style>
-
-        <div className="chat bg-gray-300 px-3 relative overflow-y-scroll">
-          <ChatFeed
-            messages={messages1}
-            bubbleStyles={{
-              text: {
-                fontSize: 15,
-              },
-              chatbubble: {
-                backgroundColor: '#A0AEC0',
-                borderRadius: 6,
-                padding: 8,
-              },
-              userBubble: {
-                backgroundColor: '#2F855A',
-              },
-            }}
-          />
-          {/* <div className="h-32 bg-green-900"></div> */}
-          <div ref={msgEndEl} className="h-16"></div>
-        </div>
-
-        <div className="flex w-full py-2 px-2 bg-gray-300">
+        <MessageList messages={msgs} />
+        <div className="flex w-full py-2 px-2 bg-gray-400">
           <input
+            autoFocus
+            onKeyDown={handleKeyDown}
             className="bg-white appearance-none border-1 rounded w-full py-4 px-2 text-gray-700 leading-tight focus:outline-none focus:border-gray-400 shadow-md"
             type="text"
             placeholder="Message"
@@ -113,13 +100,14 @@ const Chat = () => {
           ></input>
           <div className="w-16 h-12 pl-3">
             <button
+              onClick={() => addMessage()}
               className={cn(
                 'focus:outline-none rounded-full w-12 h-12',
                 { 'bg-blue-500': oMsg.length > 0 },
                 { 'bg-gray-500': oMsg.length == 0 },
               )}
             >
-              <FontAwesomeIcon icon={faPaperPlane} className="text-white px-1 pt-1" size="2x" />
+              <FontAwesomeIcon icon={faPaperPlane} className="text-white pr-1 pt-1" size="2x" />
             </button>
           </div>
         </div>

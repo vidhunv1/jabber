@@ -1,6 +1,6 @@
 import React from 'react'
 import { PublicKey } from '@solana/web3.js'
-import Avatar from './avatar'
+import { Avatar } from './'
 import Threads from './threads'
 
 const threads = [

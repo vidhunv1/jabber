@@ -387,15 +387,18 @@ export function deserialize<T>(schema: Schema, classType: T, buffer: Buffer): T 
 
 export abstract class Layout {
   private schema: Schema
-  constructor(schema: Schema, properties: any) {
+  constructor(schema: Schema) {
     this.schema = schema
-    Object.keys(properties).map((key: any) => {
-      ;(this as any)[key] = properties[key]
-    })
   }
 
   encode(): Buffer {
     return serialize(this.schema, this)
+  }
+
+  static assign(ob: any, properties: any) {
+    Object.keys(properties).map((key: any) => {
+      ;(ob as any)[key] = properties[key]
+    })
   }
 
   static decode<T>(schema: Schema, classType: any, buf: Buffer): T {

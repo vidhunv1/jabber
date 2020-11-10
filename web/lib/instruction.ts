@@ -20,7 +20,8 @@ export class Instruction extends Layout {
         },
       ],
     ])
-    super(schema, prop)
+    super(schema)
+    Layout.assign(this, prop)
   }
 }
 
@@ -54,6 +55,7 @@ export class InstructionData extends Layout {
   }
 
   constructor(instructionType: InstructionType, prop: any) {
-    super(InstructionData.schema[instructionType], prop)
+    super(InstructionData.schema[instructionType])
+    Layout.assign(this, prop)
   }
 }

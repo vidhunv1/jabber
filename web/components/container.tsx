@@ -6,7 +6,7 @@ interface Container {
 
 const Container = ({ children }: Container): JSX.Element => (
   <div className="py-6 h-screen">
-    <div className="container mx-auto max-w-lg bg-gray-100 h-full rounded-sm">{children}</div>
+    <div className="container mx-auto max-w-lg bg-white h-full rounded-sm">{children}</div>
   </div>
 )
 
