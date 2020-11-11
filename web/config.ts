@@ -1,5 +1,5 @@
 export default {
-  programId: '2gKFFWkhbnqCuxGuhP2wRKMk7xc7ar765tJ6td4u8JVJ',
+  programId: 'FQ57Vir9W71pHpeiPHMPD3iUtsEFSxLhJ5ZXguo8Pvsv',
   rpcUrl: 'http://localhost:8899',
   environment: 'testnet',
 }

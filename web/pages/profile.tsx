@@ -4,12 +4,12 @@ import Container from '../components/container'
 import _find from 'lodash/find'
 import _get from 'lodash/get'
 import { useSelector, useDispatch } from 'react-redux'
-import { RootState } from '../features'
-import { ProfileState } from '../features/profile/profileSlice'
+import { RootState } from '../store'
+import { ProfileState } from '../store/profile/profileSlice'
 import { useRouter } from 'next/router'
 import { Avatar } from '../components/chat'
-import { saveProfile } from '../features/profile/profileSlice'
-import { WalletState } from '../features/wallet/walletSlice'
+import { saveProfile } from '../store/profile/profileSlice'
+import { WalletState } from '../store/wallet/walletSlice'
 import { Account, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import cn from 'classnames'
 import BN from 'bn.js'
@@ -32,6 +32,7 @@ const Profile = () => {
   const [bio, setBio] = useState(_get(myProfile, 'bio', ''))
   const [price, setPrice] = useState(parseFloat(_get(myProfile, 'lamportsPerMessage', '0.0')) / LAMPORTS_PER_SOL + '')
   const [isLoading, setLoading] = useState(false)
+  const [isError, setError] = useState(false)
 
   const router = useRouter()
 
@@ -40,21 +41,19 @@ const Profile = () => {
     return <></>
   }
 
-  const onSave = () => {
+  const onSave = async () => {
+    setError(false)
     const account = new Account(new Uint8Array(JSON.parse(`[${wallet.secretKey.toString()}]`)))
     const lamportsPerMessage = price === '' ? 0 : parseFloat(price) * LAMPORTS_PER_SOL
     setLoading(true)
-    dispatch(
-      saveProfile(account, name, bio, new BN(lamportsPerMessage), (ok, err) => {
-        if (err) {
-          console.error('ERROR')
-          setLoading(false)
-        } else {
-          console.log('Profile updated at', ok)
-          router.push('/')
-        }
-      }),
-    )
+    try {
+      await dispatch(saveProfile(account, name, bio, new BN(lamportsPerMessage)))
+      router.push('/')
+    } catch (e) {
+      console.error('Error saving profile', JSON.stringify(e))
+      setError(true)
+      setLoading(false)
+    }
   }
 
   return (
@@ -108,9 +107,10 @@ const Profile = () => {
               placeholder="Price"
             />
 
+            <div className={cn('mt-8 text-xs text-red-500 mb-2', { invisible: !isError })}>Error saving profile</div>
             <button
               className={cn(
-                'px-16 py-2 uppercase text-white font-bold focus:outline-none mt-8',
+                'px-16 py-2 uppercase text-white font-bold focus:outline-none',
                 isLoading ? 'bg-gray-400' : 'bg-green-700',
               )}
               onClick={onSave}

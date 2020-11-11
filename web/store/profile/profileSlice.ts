@@ -34,6 +34,7 @@ const profileSlice = createSlice({
 })
 
 const fetchProfile = (userPk: PublicKey): AppThunk => async (dispatch) => {
+  console.log('FETch profile')
   const profilePk = await Profile.createWithSeed(userPk, new PublicKey(appConfig.programId))
   const connection = new Connection(appConfig.rpcUrl, 'recent')
   const profile = await readProfile(connection, userPk, new PublicKey(appConfig.programId))
@@ -52,33 +53,25 @@ const fetchProfile = (userPk: PublicKey): AppThunk => async (dispatch) => {
   }
 }
 
-const saveProfile = (
-  account: Account,
-  name: string,
-  bio: string,
-  lamportsPerMessage: BN,
-  cb: (ok: string, err: any) => any,
-): AppThunk => async (dispatch) => {
+const saveProfile = (account: Account, name: string, bio: string, lamportsPerMessage: BN): AppThunk => async (
+  dispatch,
+) => {
   const profilePk = await Profile.createWithSeed(account.publicKey, new PublicKey(appConfig.programId))
   const connection = new Connection(appConfig.rpcUrl, 'recent')
 
-  try {
-    // Request Airdrop if test
-    // TODO: Will get airdrop everytime they change profile!
-    if (config.environment === 'testnet' || config.environment === 'devnet') {
-      console.log('Requesting airdrop')
-      await airdrop(connection, account.publicKey.toString(), 100000000000)
-    }
-
-    const tx = await setUserProfile(connection, account, new PublicKey(appConfig.programId), {
-      lamportsPerMessage: lamportsPerMessage,
-      name,
-      bio,
-    })
-    await sendAndConfirmTransaction('SetUserProfile', connection, tx, account)
-  } catch (e) {
-    cb(null, 'Request error')
+  // Request Airdrop if test
+  // TODO: Will get airdrop everytime they change profile!
+  if (config.environment === 'testnet' || config.environment === 'devnet') {
+    console.log('Requesting airdrop')
+    await airdrop(connection, account.publicKey.toString(), 100000000000)
   }
+
+  const tx = await setUserProfile(connection, account, new PublicKey(appConfig.programId), {
+    lamportsPerMessage: lamportsPerMessage,
+    name,
+    bio,
+  })
+  await sendAndConfirmTransaction('SetUserProfile', connection, tx, account)
 
   const newProfile = await readProfile(connection, profilePk, new PublicKey(appConfig.programId))
   dispatch(
@@ -92,7 +85,6 @@ const saveProfile = (
       lastUpdated: +new Date(),
     }),
   )
-  cb(profilePk.toString(), null)
 }
 export { fetchProfile, saveProfile }
 export const { setProfile } = profileSlice.actions

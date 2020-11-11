@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import Page from '../components/page'
 import Container from '../components/container'
-import { setWallet } from '../features/wallet/walletSlice'
+import { setWallet } from '../store/wallet/walletSlice'
 import { useDispatch } from 'react-redux'
 import { Account } from '@solana/web3.js'
 import { useRouter } from 'next/router'

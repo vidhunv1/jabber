@@ -1,4 +1,4 @@
-import { setUserProfile, sendMessage, getMessages, getThreads } from '../lib/jabber'
+import { setUserProfile, sendMessage, getMessages, getThreads, readProfile, readJabber } from '../lib/jabber'
 import { Connection, PublicKey, Account, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { RPC_URL } from './config'
 import { getLocalAccounts, getLocalAccount, getLastProgramId } from './store'
@@ -88,14 +88,14 @@ async function main() {
     const { userAccount, programPk } = await parseAccountAndProgram(process.argv[4], process.argv[5])
     console.log(`Getting messages for: ${userAccount.publicKey.toString()}`)
 
-    const revLimit = 10
-    const msgs = await getMessages(connection, userAccount.publicKey, rPk, programPk, revLimit)
+    // const revLimit = 10
+    const msgs = await getMessages(connection, userAccount.publicKey, rPk, programPk, 2, null)
 
     msgs.forEach((msg) => {
       if (msg) {
         const m: string = Message.parseMessage(msg.msg.kind, new Uint8Array(msg.msg.msg), msg.pk, userAccount, rPk)
         console.log(
-          `${msg.id}: ${msg.isOwnMsg} ${msg.msg.kind} ${m}, at ${new Date(
+          `${msg.id}: sender:${msg.senderPk} ${msg.msg.kind} ${m}, at ${new Date(
             msg.msg.timestamp.toNumber() * 1000,
           ).toString()}`,
         )
@@ -106,17 +106,25 @@ async function main() {
   } else if (action === 'getThreads') {
     const { userAccount, programPk } = await parseAccountAndProgram(process.argv[3], process.argv[4])
     console.log('Getting threads for: ' + userAccount.publicKey.toString())
-    const threadsCur = await getThreads(connection, userAccount.publicKey, programPk, 'current')
-    const threadsPre = await getThreads(connection, userAccount.publicKey, programPk, 'pre')
+    let prePointer: PublicKey | null = null
+    let currPointer: PublicKey | null = null
+    const sProfile = await readProfile(connection, userAccount.publicKey, programPk)
+    if (!(sProfile == null || (sProfile && sProfile.threadTailPk == null))) {
+      prePointer = sProfile.threadTailPk
+    }
+    // NOTE: This will get expensive as the number of chat thread's in the world grows.
+    const jabber = await readJabber(connection, programPk)
+    if (jabber != null) {
+      currPointer = jabber.unregisteredThreadTailPk
+    }
+
+    const threadsCur = await getThreads(connection, userAccount.publicKey, currPointer, null, 'curr')
+    const threadsPre = await getThreads(connection, userAccount.publicKey, prePointer, null, 'pre')
     console.log(`Pre: ${threadsPre.length}, Cur: ${threadsCur.length}`)
 
     const threads = _uniqBy([...threadsPre, ...threadsCur], 'pk')
     threads.forEach((t, i) => console.log(`${i}: ${t.thread.u1.toString()} <==> ${t.thread.u2.toString()}`))
   } else if (action === 'scratch') {
-    const { userAccount, programPk } = await parseAccountAndProgram(process.argv[3], process.argv[4])
-    console.log('Pre threads for: ' + userAccount.publicKey.toString())
-    const threads = await getThreads(connection, userAccount.publicKey, programPk, 'pre')
-    console.log('THREADs: ' + JSON.stringify(threads))
   } else {
     console.log('Wrong command')
   }

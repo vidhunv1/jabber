@@ -4,19 +4,17 @@ import Container from '../components/container'
 import { PublicKey, Connection, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { Avatar } from '../components/chat/avatar'
 import Threads from '../components/chat/threads'
-import { useSelector } from 'react-redux'
-import { RootState } from '../features'
+import { useSelector, useDispatch } from 'react-redux'
+import { RootState } from '../store'
 import { useRouter } from 'next/router'
-import { persistor } from '../features'
+import { persistor } from '../store'
 import _find from 'lodash/find'
-import { ProfileState } from '../features/profile/profileSlice'
+import { ProfileState } from '../store/profile/profileSlice'
 import Link from 'next/link'
 import appConfig from '../config'
-
-const threadUserPkeys = [
-  new PublicKey('2mrWFpShFZs9RkbqUR3tHbwj65cHhHGvp5wh31NtDL5N'),
-  new PublicKey('BndyxryYWB1tGtLnT1LJugNaHQ5nM4GD6c58UbySfghF'),
-]
+import { firstSyncAll } from '../store/thread/threadSlice'
+import Spinner from '../components/spinner'
+import { useNewThreadSubsription } from '../store/thread/threadHooks'
 
 const formatPk = (pk: PublicKey) => {
   const s = pk.toString()
@@ -88,7 +86,9 @@ const Header = ({ userPk }: { userPk: PublicKey }) => {
     <header className="text-black h-16 flex items-center justify-between border-b border-gray-300 px-2 relative">
       <div className="flex">
         <h2 className="text-2xl">Chats</h2>
-        <div className="text-xs text-gray-600 bg-green-200 text-center rounded-full h-5 px-2 mt-2 ml-2">testnet</div>
+        <div className="text-xs text-gray-700 bg-green-200 text-center rounded-full h-5 px-2 mt-2 ml-2 pt-px">
+          testnet
+        </div>
       </div>
       <div onClick={() => setDropdown(!dropdown)}>
         <Avatar
@@ -104,13 +104,21 @@ const Header = ({ userPk }: { userPk: PublicKey }) => {
 }
 
 const Home = () => {
+  useNewThreadSubsription()
+  const dispatch = useDispatch()
   const router = useRouter()
   const [search, setSearch] = useState<string>('')
   const userPk = useSelector<RootState, string | null>((s) => s.wallet.publicKey)
   const myProfile = useSelector<RootState, ProfileState | null>((s) =>
     _find(s.profile, { userPk: userPk == null ? null : userPk }),
   )
-
+  const isThreadsSynced = useSelector<RootState, boolean>((s) => s.thread.isFirstSynced)
+  useEffect(() => {
+    if (!isThreadsSynced && userPk != null) {
+      console.log('Syncing first time')
+      dispatch(firstSyncAll(new PublicKey(userPk)))
+    }
+  }, [isThreadsSynced, userPk, dispatch])
   if (userPk == null) {
     router.push('/init')
     return <></>
@@ -118,6 +126,7 @@ const Home = () => {
 
   if (myProfile == null) {
     router.push('/profile')
+    return <></>
   }
 
   return (
@@ -134,7 +143,15 @@ const Home = () => {
               value={search}
             ></input>
           </div>
-          <Threads userPkeys={threadUserPkeys} query={search} />
+
+          {isThreadsSynced ? (
+            <Threads query={search} />
+          ) : (
+            <div className="w-full h-full mt-48 text-center text-gray-600 flex justify-center">
+              <Spinner />
+              <span className="ml-3 -mt-px">Syncing your messages</span>
+            </div>
+          )}
         </div>
       </Container>
     </Page>

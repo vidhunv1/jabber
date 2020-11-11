@@ -94,39 +94,33 @@ const readProfile = async (
 
 const getMessages = async (
   connection: Connection,
-  sPk: PublicKey,
-  rPk: PublicKey,
+  u1Pk: PublicKey,
+  u2Pk: PublicKey,
   programId: PublicKey,
-  limit: number,
-  startBefore?: number,
-): Promise<{ isOwnMsg: boolean; msg: Message | null; id: number; pk: PublicKey }[]> => {
-  const thread = await readThread(connection, sPk, rPk, programId)
-  if (thread == null) {
-    return []
-  }
-
-  startBefore = startBefore == null || startBefore > thread.msgCount - 1 ? thread.msgCount - 1 : startBefore
+  startIndex?: number,
+  endIndex?: number,
+): Promise<{ senderPk: PublicKey; msg: Message | null; id: number; pk: PublicKey }[]> => {
   let msgData1: AccountInfo<Buffer>, msgData2: AccountInfo<Buffer>
-  const out: { isOwnMsg: boolean; msg: Message; id: number; pk: PublicKey }[] = []
-  for (let i = startBefore; i >= startBefore - limit && i > 0; i--) {
-    const msg1Pk = await Message.createWithSeed(i, sPk, rPk, programId)
-    const msg2Pk = await Message.createWithSeed(i, rPk, sPk, programId)
+  const out: { senderPk: PublicKey; msg: Message; id: number; pk: PublicKey }[] = []
+  for (let i = startIndex; i <= endIndex; i++) {
+    const msg1Pk = await Message.createWithSeed(i, u1Pk, u2Pk, programId)
+    const msg2Pk = await Message.createWithSeed(i, u2Pk, u1Pk, programId)
     msgData1 = await connection.getAccountInfo(msg1Pk)
     msgData2 = await connection.getAccountInfo(msg2Pk)
 
+    let msg = null
     if (msgData1) {
+      msg = [Message.decode<Message>(Message.schema, Message, msgData1.data), u1Pk]
+    } else if (msgData2) {
+      msg = [Message.decode<Message>(Message.schema, Message, msgData2.data), u2Pk]
+    }
+
+    if (msg) {
       out.push({
-        isOwnMsg: true,
-        msg: Message.decode<Message>(Message.schema, Message, msgData1.data),
+        senderPk: msg[1],
+        msg: msg[0],
         id: i,
         pk: msg1Pk,
-      })
-    } else if (msgData2) {
-      out.push({
-        isOwnMsg: false,
-        msg: Message.decode<Message>(Message.schema, Message, msgData2.data),
-        id: i,
-        pk: msg2Pk,
       })
     } else {
       out.push(null)
@@ -138,31 +132,19 @@ const getMessages = async (
 const getThreads = async (
   connection: Connection,
   senderPk: PublicKey,
-  programId: PublicKey,
-  origin: 'pre' | 'current',
+  pointer: PublicKey,
+  toPointer: PublicKey | null,
+  origin: 'pre' | 'curr',
 ): Promise<{ pk: string; thread: Thread }[]> => {
   const out: { pk: string; thread: Thread }[] = []
-
-  let pointer: PublicKey
-  if (origin === 'current') {
-    const sProfile = await readProfile(connection, senderPk, programId)
-    if (sProfile == null || (sProfile && sProfile.threadTailPk == null)) {
-      return out
-    }
-    pointer = sProfile.threadTailPk
-  } else if (origin === 'pre') {
-    // NOTE: This will get expensive as the number of chat thread's in the world grows.
-    const jabber = await readJabber(connection, programId)
-    if (jabber == null) {
-      return out
-    }
-    pointer = jabber.unregisteredThreadTailPk
-  }
-
   while (pointer != null) {
+    if (toPointer != null && pointer.equals(toPointer)) {
+      return out
+    }
     const threadData = await connection.getAccountInfo(pointer)
     if (threadData != null) {
       const thread = Thread.decode<Thread>(Thread.schema, Thread, threadData.data)
+      console.log('THREAD: ', JSON.stringify(thread))
       if (origin === 'pre') {
         if (thread.u1.equals(senderPk) || thread.u2.equals(senderPk)) {
           out.push({ pk: pointer.toString(), thread })
@@ -268,6 +250,10 @@ const sendMessage = async (
     console.debug('New chat thread created: ' + sThreadKey)
   } else {
     messageIndex = thread.msgCount
+
+    if (messageIndex == 0) {
+      messageIndex = 1
+    }
   }
 
   // create the message

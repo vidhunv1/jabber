@@ -67,9 +67,11 @@ async function main() {
     const pubkey = process.argv[3]
     await accountInfo(pubkey)
   } else if (action === 'airdrop') {
-    const pubkey = process.argv[3]
-    await airdrop(connection, pubkey, 1000000000000)
-    await accountInfo(pubkey)
+    const accs = await getLocalAccounts()
+    for (let i = 0; i < accs.length; i++) {
+      console.log('Airropping:', accs[i].publicKey.toString())
+      await airdrop(connection, accs[i].publicKey.toString(), 1000000000000)
+    }
   } else if (action === 'create') {
     await createLocalAccount()
   } else if (action === 'list') {
