@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Avatar, MessageList } from '../../components/chat'
 import { PublicKey } from '@solana/web3.js'
 import Page from '../../components/page'
@@ -10,6 +10,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import cn from 'classnames'
 import Link from 'next/link'
 import { isPublicKey } from '../../lib/solana'
+import { useSelector, useDispatch } from 'react-redux'
+import { RootState } from '../../store'
+import { ProfileState } from '../../store/profile/profileSlice'
+import _find from 'lodash/find'
+import { ThreadState } from '../../store/thread/threadSlice'
+import { useMessageSubsciption } from '../../store/message/messageHook'
+import { MessageState, sendMessage } from '../../store/message/messageSlice'
+import _isArray from 'lodash/isArray'
+import _get from 'lodash/get'
+import { useNewThreadSubsription } from '../../store/thread/threadHooks'
 
 const formatPk = (pk: PublicKey) => {
   const s = pk.toString()
@@ -36,58 +46,69 @@ const Header = ({ userPk, name }: { userPk: PublicKey; name?: string }) => {
 }
 
 const Chat = () => {
-  const [oMsg, setOMsg] = useState<string>('')
-  const [msgs, setMsgs] = useState([])
+  const dispatch = useDispatch()
   const router = useRouter()
-  const { pk } = router.query
-  const key = Array.isArray(pk) ? pk[0] : pk
-  const isPk = isPublicKey(key)
+  let participantPk: string
+  if (router.query.pk == null) {
+    participantPk = window.location.pathname.replace('/c/', '').replace(/[^a-z0-9]/gi, '')
+  } else {
+    participantPk = _isArray(router.query.pk) ? router.query.pk[0] : router.query.pk
+  }
+  const isValidParticipantPk = isPublicKey(participantPk)
+  const userPk = useSelector<RootState, string | null>((s) => s.wallet.publicKey)
+  const [myProfile, participantProfile] = useSelector<RootState, ProfileState[] | null>((s) => [
+    _find(s.profile, { userPk: userPk }),
+    _find(s.profile, { userPk: participantPk }),
+  ])
+  const [oMsg, setOMsg] = useState<string>('')
+  const thread = useSelector<RootState, ThreadState['threads'][0]>((s) =>
+    _find(s.thread.threads, { participantPk: participantPk }),
+  )
+  useMessageSubsciption(thread == null ? null : new PublicKey(thread.threadPk))
+  useNewThreadSubsription()
+  const messages = useSelector<RootState, MessageState[]>((s) =>
+    s.message.filter((m) => m.threadPk === _get(thread, 'threadPk', null)).sort((m1, m2) => m1.msgIndex - m2.msgIndex),
+  )
 
-  useEffect(() => {
-    const m = []
-    for (let i = 0; i <= 20; i++) {
-      m.push(
-        i % 2 == 0
-          ? {
-              id: 1,
-              message:
-                i +
-                '==> sSample messageSample messageSampleSample messageSample messageSampleSample messageSample messageSampleSample messageSample messageSampleSample messageSample messageSample',
-            }
-          : {
-              id: 0,
-              message: i + '<==> Sample messageSample messageSample ',
-            },
-      )
+  if (userPk == null) {
+    router.push('/init')
+    return <></>
+  }
+  if (myProfile == null) {
+    router.push('/profile')
+    return <></>
+  }
+
+  if (!isValidParticipantPk) {
+    return <Error statusCode={404} title={`Public key ${participantPk} is invalid`} />
+  }
+
+  const onSendMessage = async () => {
+    if (oMsg.length > 0) {
+      setOMsg('')
+      await dispatch(sendMessage(oMsg, participantPk))
     }
-    setMsgs(m)
-  }, [])
-
-  const addMessage = () => {
-    const m = [...msgs]
-    m.push({
-      id: 0,
-      message: oMsg,
-    })
-    setOMsg('')
-    setMsgs(m)
   }
 
   const handleKeyDown = (event: any) => {
     if (event.key === 'Enter') {
-      addMessage()
+      onSendMessage()
     }
-  }
-
-  if (!isPk) {
-    return <Error statusCode={404} title={`Public key ${key} is invalid`} />
   }
 
   return (
     <Page>
       <Container>
-        <Header userPk={new PublicKey(key)} name="Vidhun" />
-        <MessageList messages={msgs} />
+        <Header userPk={new PublicKey(participantPk)} name={_get(participantProfile, 'name', undefined)} />
+        <MessageList
+          myPk={userPk}
+          messages={messages.map((m) => ({
+            id: m.msgIndex,
+            msg: m.msg,
+            senderPk: m.senderPk,
+            timestamp: new Date(m.timestamp * 1000),
+          }))}
+        />
         <div className="flex w-full py-2 px-2 bg-gray-400">
           <input
             autoFocus
@@ -100,7 +121,7 @@ const Chat = () => {
           ></input>
           <div className="w-16 h-12 pl-3">
             <button
-              onClick={() => addMessage()}
+              onClick={() => onSendMessage()}
               className={cn(
                 'focus:outline-none rounded-full w-12 h-12',
                 { 'bg-blue-500': oMsg.length > 0 },

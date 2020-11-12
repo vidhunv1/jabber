@@ -36,10 +36,10 @@ const ThreadItem = ({ userPk }: { userPk: PublicKey }) => {
     _find(s.thread.threads, { participantPk: userPk.toString() }),
   )
 
-  useMessageSubsciption(new PublicKey(thread.threadPk))
+  useMessageSubsciption(thread == null ? null : new PublicKey(thread.threadPk))
   const lastMessage = useSelector<RootState, MessageState>((s) =>
     s.message.reduce(
-      (last, m) => (m.threadPk == thread.threadPk && m.msgIndex > (last ? last.msgIndex : 0) ? m : last),
+      (last, m) => (m.threadPk == _get(thread, 'threadPk', null) && m.msgIndex > (last ? last.msgIndex : 0) ? m : last),
       null,
     ),
   )
@@ -75,6 +75,7 @@ const ThreadItem = ({ userPk }: { userPk: PublicKey }) => {
 
 // TODO: Memoize
 const ThreadList = ({ query }: { query: string }) => {
+  const myPk = useSelector<RootState, string>((s) => s.wallet.publicKey)
   const { recipientKeys, threadProfiles } = useSelector<RootState, any>((s) => {
     const threads = s.thread.threads
     const recipientKeys = threads.map((t) => t.participantPk)
@@ -100,9 +101,9 @@ const ThreadList = ({ query }: { query: string }) => {
 
   return (
     <div>
-      {!exists && isPublicKey(query) && <ThreadItem userPk={new PublicKey(query)} />}
+      {query != myPk && !exists && isPublicKey(query) && <ThreadItem userPk={new PublicKey(query)} />}
       {list.map((u, i) => (
-        <ThreadItem key={u + i} userPk={new PublicKey(u)} />
+        <ThreadItem key={i} userPk={new PublicKey(u)} />
       ))}
     </div>
   )

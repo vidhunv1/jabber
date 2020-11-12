@@ -66,7 +66,7 @@ export class Thread extends Layout {
   u1: PublicKey
   u2: PublicKey
 
-  static SPACE = 133
+  static SPACE = 134
   static schema: Schema = new Map([
     [
       Thread,

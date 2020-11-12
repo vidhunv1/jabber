@@ -9,14 +9,17 @@ import { parseThread } from '../thread/threadHooks'
 import { useEffect } from 'react'
 import _find from 'lodash/find'
 
-export const useMessageSubsciption = (threadPk: PublicKey) => {
+export const useMessageSubsciption = (threadPk: PublicKey | null) => {
   const dispatch = useDispatch()
   const userPkStr = useSelector<RootState, string>((s) => s.wallet.publicKey)
   const currThread = useSelector<RootState, ThreadState['threads'][0]>((s) =>
-    _find(s.thread.threads, { threadPk: threadPk.toString() }),
+    threadPk == null ? null : _find(s.thread.threads, { threadPk: threadPk.toString() }),
   )
 
   useEffect(() => {
+    if (!userPkStr || !threadPk) {
+      return
+    }
     const userPk = new PublicKey(userPkStr)
     const connection = new Connection(appConfig.rpcUrl, 'recent')
 

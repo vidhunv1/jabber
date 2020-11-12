@@ -14,6 +14,7 @@ import {
 import { sendAndConfirmTransaction } from './solana'
 import { InstructionData, Instruction, InstructionType } from './instruction'
 import BN from 'bn.js'
+import _get from 'lodash/get'
 
 const readUserProfile = async (
   connection: Connection,
@@ -46,18 +47,27 @@ const readThread = async (
   senderPk: PublicKey,
   receiverPk: PublicKey,
   programId: PublicKey,
-): Promise<Thread | null> => {
+): Promise<[Thread, PublicKey] | null> => {
   const sThreadKey = await Thread.createWithSeed(senderPk, receiverPk, programId)
   const rThreadKey = await Thread.createWithSeed(receiverPk, senderPk, programId)
 
   // TODO: This is always going to be the same for a chat, store/get from cache.
   const sThreadData = await connection.getAccountInfo(sThreadKey)
   const rThreadData = await connection.getAccountInfo(rThreadKey)
-  console.debug('Thread: ' + (sThreadData != null ? sThreadKey : rThreadKey))
-  const threadData = sThreadData || rThreadData
+
+  let threadData = null
+  let threadPk = null
+  if (sThreadData != null) {
+    threadData = sThreadData
+    threadPk = sThreadKey
+  }
+  if (rThreadData != null) {
+    threadData = rThreadData
+    threadPk = rThreadKey
+  }
 
   if (threadData != null) {
-    return Thread.decode<Thread>(Thread.schema, Thread, threadData.data)
+    return [Thread.decode<Thread>(Thread.schema, Thread, threadData.data), threadPk]
   }
 
   return null
@@ -144,7 +154,6 @@ const getThreads = async (
     const threadData = await connection.getAccountInfo(pointer)
     if (threadData != null) {
       const thread = Thread.decode<Thread>(Thread.schema, Thread, threadData.data)
-      console.log('THREAD: ', JSON.stringify(thread))
       if (origin === 'pre') {
         if (thread.u1.equals(senderPk) || thread.u2.equals(senderPk)) {
           out.push({ pk: pointer.toString(), thread })
@@ -158,6 +167,8 @@ const getThreads = async (
           pointer = thread.prevThreadU2
         }
       }
+    } else {
+      pointer = null
     }
   }
   return out
@@ -217,7 +228,8 @@ const sendMessage = async (
   programId: PublicKey,
   msg: string,
   kind: MessageKind,
-): Promise<Transaction> => {
+): Promise<{ tx: Transaction; msgPk: PublicKey; msgIndex: number; threadPk: PublicKey }> => {
+  const tx = new Transaction()
   const senderPk = senderAccount.publicKey
   const jabberKey = await Jabber.createWithSeed(programId)
   const sProfileKey = await Profile.createWithSeed(senderPk, programId)
@@ -231,7 +243,12 @@ const sendMessage = async (
     throw new JabberError(JabberErrorType.ProfileNotFound)
   }
 
-  const thread = await readThread(connection, senderPk, receiverPk, programId)
+  const t = await readThread(connection, senderPk, receiverPk, programId)
+  let thread: Thread | null = null
+  let threadPk: PublicKey
+  if (t) {
+    ;[thread, threadPk] = t
+  }
   let messageIndex: number
   if (thread == null) {
     messageIndex = 1
@@ -246,7 +263,8 @@ const sendMessage = async (
       programId,
       newAccountPubkey: sThreadKey,
     })
-    await sendAndConfirmTransaction('createThread', connection, new Transaction().add(createThreadTx), senderAccount)
+    threadPk = sThreadKey
+    tx.add(createThreadTx)
     console.debug('New chat thread created: ' + sThreadKey)
   } else {
     messageIndex = thread.msgCount
@@ -275,7 +293,6 @@ const sendMessage = async (
   if ((await connection.getAccountInfo(messageKey)) == null) {
     // TODO: Messages need not be rent exempted if permanent storage is not required
     const rentExemption = await connection.getMinimumBalanceForRentExemption(msgDummy.byteLength)
-    console.debug(`Message: ${messageKey}, id: ${messageIndex}, cost: ${rentExemption / LAMPORTS_PER_SOL}`)
     const createTx = SystemProgram.createAccountWithSeed({
       fromPubkey: senderAccount.publicKey,
       lamports: rentExemption,
@@ -285,7 +302,7 @@ const sendMessage = async (
       programId,
       newAccountPubkey: messageKey,
     })
-    await sendAndConfirmTransaction('createMessage', connection, new Transaction().add(createTx), senderAccount)
+    tx.add(createTx)
   }
 
   const instructionDataBuf = new InstructionData(InstructionType.SendMessage, {
@@ -312,7 +329,7 @@ const sendMessage = async (
     }).encode(),
   })
 
-  return new Transaction().add(instruction)
+  return { tx: tx.add(instruction), msgPk: messageKey, msgIndex: messageIndex, threadPk }
 }
 
 export {

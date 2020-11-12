@@ -1,17 +1,21 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { MessageKind, Message } from '../../lib/state'
+import { MessageKind, Message, Thread } from '../../lib/state'
 import { PublicKey, Connection, Account } from '@solana/web3.js'
 import { AppThunk } from '..'
-import { getMessages } from '../../lib/jabber'
+import { getMessages, sendMessage as sendMessageJabber } from '../../lib/jabber'
 import appConfig from '../../config'
 import _find from 'lodash/find'
 import _remove from 'lodash/remove'
+import { sendAndConfirmTransaction } from '../../lib/solana'
+import { setThread } from '../thread/threadSlice'
+import { parseThread } from '../thread/threadHooks'
 
 export const MESSAGE_SLICE = 'message'
 export interface MessageState {
   msgPk: string
   msgIndex: number
   threadPk: string
+  senderPk: string
   kind: MessageKind
   msg: string
   timestamp: number
@@ -29,6 +33,39 @@ const messageSlice = createSlice({
     },
   },
 })
+
+const sendMessage = (msg: string, participantPk: string): AppThunk => async (dispatch, getState) => {
+  const state = getState()
+  if (!state.wallet.publicKey) {
+    throw new Error('No user available')
+  }
+  // const thread = _find(state.thread.threads, { participantPk })
+
+  const userAccount = new Account(new Uint8Array(JSON.parse(`[${state.wallet.secretKey}]`)))
+  const connection = new Connection(appConfig.rpcUrl, 'recent')
+  const msgKind = MessageKind.EncryptedUtf8
+  const { tx, msgPk, msgIndex, threadPk } = await sendMessageJabber(
+    connection,
+    userAccount,
+    new PublicKey(participantPk),
+    new PublicKey(appConfig.programId),
+    msg,
+    msgKind,
+  )
+
+  dispatch(
+    addMessage({
+      msgPk: msgPk.toString(),
+      msgIndex: msgIndex,
+      threadPk: threadPk.toString(),
+      kind: msgKind,
+      senderPk: userAccount.publicKey.toString(),
+      msg,
+      timestamp: +new Date(),
+    }),
+  )
+  await sendAndConfirmTransaction('SendMessage', connection, tx, userAccount)
+}
 
 const fetchMessages = (threadPk: PublicKey): AppThunk => async (dispatch, getState) => {
   // get the last available message index
@@ -59,13 +96,14 @@ const fetchMessages = (threadPk: PublicKey): AppThunk => async (dispatch, getSta
     thread.msgCount - 1,
   )
 
-  msgs.map((m) =>
+  msgs.map((m) => {
     dispatch(
       addMessage({
         msgPk: m.pk.toString(),
         msgIndex: m.id,
         threadPk: threadStr,
         kind: m.msg.kind,
+        senderPk: m.senderPk.toString(),
         msg: Message.parseMessage(
           m.msg.kind,
           new Uint8Array(m.msg.msg),
@@ -75,12 +113,12 @@ const fetchMessages = (threadPk: PublicKey): AppThunk => async (dispatch, getSta
         ),
         timestamp: m.msg.timestamp.toNumber(),
       }),
-    ),
-  )
+    )
+  })
 
   console.log(`Saved ${msgs.length} messages`)
 }
 
-export { fetchMessages }
+export { fetchMessages, sendMessage }
 export const { addMessage } = messageSlice.actions
 export default messageSlice.reducer

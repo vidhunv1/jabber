@@ -34,6 +34,7 @@ const Dropdown = ({ pk }: { pk: PublicKey }) => {
   const router = useRouter()
   const signout = async () => {
     await persistor.purge()
+    localStorage.clear()
     router.push('/init')
   }
 

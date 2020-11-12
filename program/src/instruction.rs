@@ -48,7 +48,6 @@ impl JabberInstruction {
     ) -> ProgramResult {
         let instruction = JabberInstruction::try_from_slice(&instruction_data)
             .map_err(|_| ProgramError::InvalidInstructionData)?;
-        info!(&format!("Instruction {:?}", instruction));
         let accounts_iter = &mut accounts.iter();
         match instruction {
             JabberInstruction::SendMessage { kind, msg } if kind >= 10 => {
@@ -62,11 +61,15 @@ impl JabberInstruction {
                 let jabber_acc = next_account_info(accounts_iter)?;
                 let sysvar_rent_acc = next_account_info(accounts_iter)?;
                 let sysvar_clock_acc = next_account_info(accounts_iter)?;
+
                 if !s_acc.is_signer {
                     return Err(ProgramError::MissingRequiredSignature);
                 }
+                if s_acc.key == r_acc.key {
+                    return Err(ProgramError::InvalidArgument);
+                }
                 if *jabber_acc.key != Jabber::get_account(program_id)? {
-                    info!(&format!("Jabber account invalid: {}", *jabber_acc.key));
+                    info!("Jabber account invalid");
                     return Err(ProgramError::InvalidAccountData);
                 }
                 if !rent::check_id(sysvar_rent_acc.key) {
@@ -141,10 +144,7 @@ impl JabberInstruction {
                         program_id,
                     )?
                 {
-                    info!(&format!(
-                        "Message accout invalid for index {}",
-                        thread.msg_count
-                    ));
+                    info!("Message account invalid");
                     return Err(JabberError::AccountNotDeterministic.into());
                 }
 
@@ -177,6 +177,7 @@ impl JabberInstruction {
                         jabber.pack(&mut jabber_data);
                     }
                 }
+
                 let message = Message {
                     kind,
                     msg,
@@ -184,7 +185,6 @@ impl JabberInstruction {
                 };
                 let mut message_data = msg_acc.try_borrow_mut_data()?;
                 message.pack(&mut message_data);
-
                 thread.msg_count = thread.msg_count + 1;
                 thread.pack(&mut thread_data);
                 Ok(())

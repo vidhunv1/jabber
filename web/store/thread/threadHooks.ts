@@ -11,7 +11,6 @@ import { fetchMessages } from '../message/messageSlice'
 import { Profile, Thread } from '../../lib/state'
 
 export const useNewThreadSubsription = () => {
-  console.log('Thread hooked')
   const dispatch = useDispatch()
   const userPkStr = useSelector<RootState, string>((s) => s.wallet.publicKey)
   const stateProfile = useSelector<RootState, ProfileState | null>((s) => _find(s.profile, { userPk: userPkStr }))
@@ -78,6 +77,7 @@ export const parseThread = (
     msgCount: thread.msgCount,
     prevThreadPk: prevThreadPk != null ? prevThreadPk.toString() : null,
     participantPk: recipientPk.toString(),
+    lastMsgRead: 0,
   }
 }
 

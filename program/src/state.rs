@@ -53,7 +53,7 @@ pub struct Thread {
 }
 impl Serdes for Thread {}
 impl Thread {
-    pub const MIN_SPACE: usize = 133;
+    pub const MIN_SPACE: usize = 134;
     pub fn create_with_seed(
         creator_pk: &Pubkey,
         friend_pk: &Pubkey,

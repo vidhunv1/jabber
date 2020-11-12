@@ -67,7 +67,7 @@ async function main() {
     const prevBalance = await getLamports(connection, userAccount.publicKey)
     const receiverPk = new PublicKey(process.argv[4])
     console.log(`Sending message from: ${userAccount.publicKey.toString()}, to: ${receiverPk.toString()}`)
-    const tx = await sendMessage(
+    const { tx } = await sendMessage(
       connection,
       userAccount,
       receiverPk,

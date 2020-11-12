@@ -18,6 +18,7 @@ export interface ThreadState {
     prevThreadPk: string
     participantPk: string
     id: number
+    lastMsgRead: number
   }[]
 }
 
@@ -57,19 +58,17 @@ const firstSyncAll = (userPk: PublicKey): AppThunk => async (dispatch, getState)
     let currPointer: PublicKey | null = null
     const sProfile = await readProfile(connection, userPk, new PublicKey(appConfig.programId))
     if (!(sProfile == null || (sProfile && sProfile.threadTailPk == null))) {
-      prePointer = sProfile.threadTailPk
+      currPointer = sProfile.threadTailPk
     }
     // NOTE: This will get expensive as the number of chat thread's in the world grows.
     const jabber = await readJabber(connection, new PublicKey(appConfig.programId))
     if (jabber != null) {
-      currPointer = jabber.unregisteredThreadTailPk
+      prePointer = jabber.unregisteredThreadTailPk
     }
 
     const preThreads = await getThreads(connection, userPk, prePointer, null, 'pre')
     const currentThreads = await getThreads(connection, userPk, currPointer, null, 'curr')
     const th = [...preThreads, ...currentThreads]
-
-    console.log('ALL THREADS: ', JSON.stringify(th))
 
     for (let i = 0; i < th.length; i++) {
       const t = th[i]
@@ -78,7 +77,6 @@ const firstSyncAll = (userPk: PublicKey): AppThunk => async (dispatch, getState)
       await dispatch(setThread(tState))
       await dispatch(fetchMessages(new PublicKey(t.pk)))
     }
-
     dispatch(setSynced())
   }
 }
