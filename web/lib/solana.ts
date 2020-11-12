@@ -1,7 +1,6 @@
 import { sendAndConfirmTransaction as realSendAndConfirmTransaction, PublicKey } from '@solana/web3.js'
 import type { Account, Connection, Transaction } from '@solana/web3.js'
 import YAML from 'json-to-pretty-yaml'
-import appConfig from '../config'
 
 type TransactionNotification = (a: string, b: string) => void
 

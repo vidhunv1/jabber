@@ -4,6 +4,7 @@ import { AppThunk } from '..'
 import appConfig from '../../config'
 import { getThreads, readProfile, readJabber } from '../../lib/jabber'
 import _remove from 'lodash/remove'
+import _findIndex from 'lodash/findIndex'
 import { fetchProfile } from '../profile/profileSlice'
 import { fetchMessages } from '../message/messageSlice'
 import { parseThread } from './threadHooks'
@@ -33,16 +34,33 @@ const threadSlice = createSlice({
   initialState,
   reducers: {
     setThread(state, action: PayloadAction<Omit<ThreadState['threads'][0], 'id'>>) {
-      _remove(state.threads, { threadPk: action.payload.threadPk })
       const id = state.count
-      state.threads.push({
-        ...action.payload,
-        id,
-      })
+      const index = _findIndex(state.threads, { threadPk: action.payload.threadPk })
+      console.log('INDEX: ', index)
+      if (index >= 0) {
+        state.threads[index] = {
+          ...action.payload,
+          lastMsgRead: state.threads[index].lastMsgRead,
+          id,
+        }
+      } else {
+        state.threads.push({
+          ...action.payload,
+          id,
+        })
+      }
+
       state.count = state.count + 1
     },
     setSynced(state) {
       state.isFirstSynced = true
+    },
+    setThreadRead(state, action: PayloadAction<{ threadPk: string; lastMsgIndex: number }>) {
+      const index = _findIndex(state.threads, { threadPk: action.payload.threadPk })
+      state.threads[index] = {
+        ...state.threads[index],
+        lastMsgRead: action.payload.lastMsgIndex,
+      }
     },
   },
 })
@@ -82,5 +100,5 @@ const firstSyncAll = (userPk: PublicKey): AppThunk => async (dispatch, getState)
 }
 
 export { firstSyncAll }
-export const { setThread, setSynced } = threadSlice.actions
+export const { setThread, setSynced, setThreadRead } = threadSlice.actions
 export default threadSlice.reducer

@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { MessageKind, Message, Thread } from '../../lib/state'
+import { MessageKind, Message } from '../../lib/state'
 import { PublicKey, Connection, Account } from '@solana/web3.js'
 import { AppThunk } from '..'
 import { getMessages, sendMessage as sendMessageJabber } from '../../lib/jabber'
@@ -7,8 +7,6 @@ import appConfig from '../../config'
 import _find from 'lodash/find'
 import _remove from 'lodash/remove'
 import { sendAndConfirmTransaction } from '../../lib/solana'
-import { setThread } from '../thread/threadSlice'
-import { parseThread } from '../thread/threadHooks'
 
 export const MESSAGE_SLICE = 'message'
 export interface MessageState {
@@ -39,7 +37,6 @@ const sendMessage = (msg: string, participantPk: string): AppThunk => async (dis
   if (!state.wallet.publicKey) {
     throw new Error('No user available')
   }
-  // const thread = _find(state.thread.threads, { participantPk })
 
   const userAccount = new Account(new Uint8Array(JSON.parse(`[${state.wallet.secretKey}]`)))
   const connection = new Connection(appConfig.rpcUrl, 'recent')

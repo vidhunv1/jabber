@@ -70,7 +70,7 @@ async function main() {
     const accs = await getLocalAccounts()
     for (let i = 0; i < accs.length; i++) {
       console.log('Airropping:', accs[i].publicKey.toString())
-      await airdrop(connection, accs[i].publicKey.toString(), 1000000000000)
+      await airdrop(connection, accs[i].publicKey.toString(), 1000000)
     }
   } else if (action === 'create') {
     await createLocalAccount()

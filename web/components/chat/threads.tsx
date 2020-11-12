@@ -5,12 +5,14 @@ import Link from 'next/link'
 import { isPublicKey } from '../../lib/solana'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchProfile, ProfileState } from '../../store/profile/profileSlice'
-import _get from 'lodash/get'
 import { RootState } from '../../store'
 import _find from 'lodash/find'
+import _get from 'lodash/get'
+import _orderBy from 'lodash/orderBy'
 import { ThreadState } from '../../store/thread/threadSlice'
 import { MessageState } from '../../store/message/messageSlice'
 import { useMessageSubsciption } from '../../store/message/messageHook'
+import cn from 'classnames'
 
 const formatPk = (pk: PublicKey) => {
   const s = pk.toString()
@@ -30,19 +32,12 @@ const formatTime = (date: Date) => {
     return ds.substr(ds.indexOf(' ') + 1)
   }
 }
-const ThreadItem = ({ userPk }: { userPk: PublicKey }) => {
+const ThreadItem = ({ userPk, lastMessage }: { userPk: PublicKey; lastMessage: MessageState | null }) => {
   const dispatch = useDispatch()
   const thread = useSelector<RootState, ThreadState['threads'][0]>((s) =>
     _find(s.thread.threads, { participantPk: userPk.toString() }),
   )
-
   useMessageSubsciption(thread == null ? null : new PublicKey(thread.threadPk))
-  const lastMessage = useSelector<RootState, MessageState>((s) =>
-    s.message.reduce(
-      (last, m) => (m.threadPk == _get(thread, 'threadPk', null) && m.msgIndex > (last ? last.msgIndex : 0) ? m : last),
-      null,
-    ),
-  )
   const profile = useSelector<RootState, ProfileState | null>((s) => _find(s.profile, { userPk: userPk.toString() }))
 
   if (profile == null) {
@@ -54,6 +49,7 @@ const ThreadItem = ({ userPk }: { userPk: PublicKey }) => {
     timestamp: lastMessage != null ? new Date(lastMessage.timestamp * 1000) : null,
   }
 
+  const unreadCount = lastMsg.msg.msgIndex - thread.lastMsgRead
   return (
     <Link href={`/c/${userPk}`}>
       <div className="hover:bg-gray-100 cursor-pointer px-2 w-full">
@@ -64,7 +60,18 @@ const ThreadItem = ({ userPk }: { userPk: PublicKey }) => {
               <div>{name || formatPk(new PublicKey(userPk.toString()))}</div>
               {lastMsg.msg && <div className="text-gray-600 text-xs">{formatTime(lastMsg.timestamp)}</div>}
             </div>
-            {lastMsg.msg && <div className="text-gray-600 truncate">{lastMsg.msg.msg}</div>}
+            <div className="flex justify-between">
+              {lastMsg.msg && (
+                <div className={cn('truncate', unreadCount > 0 ? 'text-gray-900 font-bold' : 'text-gray-500')}>
+                  {lastMsg.msg.msg}
+                </div>
+              )}
+              {unreadCount > 0 && (
+                <div className="rounded-full bg-green-500 w-5 h-5 text-xs text-white text-center pt-px">
+                  {unreadCount}
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="h-px bg-gray-300 ml-16" />
@@ -76,34 +83,52 @@ const ThreadItem = ({ userPk }: { userPk: PublicKey }) => {
 // TODO: Memoize
 const ThreadList = ({ query }: { query: string }) => {
   const myPk = useSelector<RootState, string>((s) => s.wallet.publicKey)
-  const { recipientKeys, threadProfiles } = useSelector<RootState, any>((s) => {
+  const { participants, threadProfiles, lastMessages } = useSelector<RootState, any>((s) => {
     const threads = s.thread.threads
-    const recipientKeys = threads.map((t) => t.participantPk)
+
+    const lastMessages = s.message.reduce(
+      (acc, m) => {
+        const curr = acc[m.threadPk]
+        if (curr == null || m.msgIndex > curr.msgIndex) {
+          acc[m.threadPk] = m
+        }
+        return acc
+      },
+      threads.reduce((acc, m) => ({ ...acc, [m.threadPk]: null }), null),
+    )
+
+    const participants = _orderBy(
+      threads.map((t) => [t.participantPk, t.threadPk]),
+      (a) => lastMessages[a[1]].timestamp,
+      ['desc'],
+    )
     return {
-      threads: s.thread.threads,
-      recipientKeys: recipientKeys,
-      threadProfiles: s.profile.filter((p) => recipientKeys.map((u) => u.toString()).includes(p.userPk)),
+      lastMessages,
+      participants: participants,
+      threadProfiles: s.profile,
     }
   })
 
   const queryProfile = useSelector<RootState, ProfileState | null>((s) => _find(s.profile, { userPk: queryProfile }))
 
   const filter = query.toLowerCase()
-  const exists = recipientKeys.some((l) => l.toString() == query)
+  const exists = participants.some((l) => l[0] == query)
   const list =
     filter.length === 0
-      ? recipientKeys
-      : recipientKeys.filter((u) => {
-          const userPk = u.toString()
+      ? participants
+      : participants.filter((u) => {
+          const userPk = u[0]
           const p = _find(threadProfiles, { userPk }, null)
-          return u.toString().toLowerCase().includes(filter) || (p && p.name.includes(filter))
+          return u[0].toLowerCase().includes(filter) || (p && p.name.includes(filter))
         })
 
   return (
     <div>
-      {query != myPk && !exists && isPublicKey(query) && <ThreadItem userPk={new PublicKey(query)} />}
+      {query != myPk && !exists && isPublicKey(query) && (
+        <ThreadItem userPk={new PublicKey(query)} lastMessage={null} />
+      )}
       {list.map((u, i) => (
-        <ThreadItem key={i} userPk={new PublicKey(u)} />
+        <ThreadItem key={i} userPk={new PublicKey(u[0])} lastMessage={lastMessages[u[1]]} />
       ))}
     </div>
   )

@@ -42,7 +42,7 @@ export const ChatBubble = ({ msg, myPk, senderPk, timestamp }: BubbleProps) => {
         myPk === senderPk ? 'bg-green-100' : 'bg-white',
       )}
     >
-      <p className="text-md m-0">{msg}</p>
+      <p className="text-sm m-0">{msg}</p>
       <div className="absolute right-0 bottom-0 text-xs text-gray-500 mr-2">{`${timestamp.getHours()}:${timestamp.getMinutes()}`}</div>
     </div>
   )

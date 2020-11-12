@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Avatar, MessageList } from '../../components/chat'
 import { PublicKey } from '@solana/web3.js'
 import Page from '../../components/page'
@@ -14,7 +14,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '../../store'
 import { ProfileState } from '../../store/profile/profileSlice'
 import _find from 'lodash/find'
-import { ThreadState } from '../../store/thread/threadSlice'
+import { ThreadState, setThreadRead } from '../../store/thread/threadSlice'
 import { useMessageSubsciption } from '../../store/message/messageHook'
 import { MessageState, sendMessage } from '../../store/message/messageSlice'
 import _isArray from 'lodash/isArray'
@@ -69,6 +69,12 @@ const Chat = () => {
   const messages = useSelector<RootState, MessageState[]>((s) =>
     s.message.filter((m) => m.threadPk === _get(thread, 'threadPk', null)).sort((m1, m2) => m1.msgIndex - m2.msgIndex),
   )
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1]
+    if (thread.lastMsgRead < lastMessage.msgIndex) {
+      dispatch(setThreadRead({ threadPk: thread.threadPk, lastMsgIndex: messages[messages.length - 1].msgIndex }))
+    }
+  }, [thread.threadPk, messages, dispatch, thread.lastMsgRead])
 
   if (userPk == null) {
     router.push('/init')

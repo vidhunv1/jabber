@@ -34,7 +34,6 @@ const profileSlice = createSlice({
 })
 
 const fetchProfile = (userPk: PublicKey): AppThunk => async (dispatch) => {
-  console.log('FETch profile')
   const profilePk = await Profile.createWithSeed(userPk, new PublicKey(appConfig.programId))
   const connection = new Connection(appConfig.rpcUrl, 'recent')
   const profile = await readProfile(connection, userPk, new PublicKey(appConfig.programId))
@@ -58,12 +57,13 @@ const saveProfile = (account: Account, name: string, bio: string, lamportsPerMes
 ) => {
   const profilePk = await Profile.createWithSeed(account.publicKey, new PublicKey(appConfig.programId))
   const connection = new Connection(appConfig.rpcUrl, 'recent')
+  console.log('Using connection: ', appConfig.rpcUrl)
 
   // Request Airdrop if test
   // TODO: Will get airdrop everytime they change profile!
   if (config.environment === 'testnet' || config.environment === 'devnet') {
     console.log('Requesting airdrop')
-    await airdrop(connection, account.publicKey.toString(), 100000000000)
+    await airdrop(connection, account.publicKey.toString(), 10000000000)
   }
 
   const tx = await setUserProfile(connection, account, new PublicKey(appConfig.programId), {
