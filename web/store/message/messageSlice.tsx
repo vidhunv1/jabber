@@ -108,7 +108,7 @@ const fetchMessages = (threadPk: PublicKey): AppThunk => async (dispatch, getSta
           userAccount,
           new PublicKey(thread.participantPk),
         ),
-        timestamp: m.msg.timestamp.toNumber(),
+        timestamp: m.msg.timestamp.toNumber() * 1000,
       }),
     )
   })

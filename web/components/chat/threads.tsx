@@ -46,10 +46,10 @@ const ThreadItem = ({ userPk, lastMessage }: { userPk: PublicKey; lastMessage: M
   const name = _get(profile, 'name', null)
   const lastMsg: { msg: MessageState | null; timestamp: Date | null } | null = {
     msg: lastMessage,
-    timestamp: lastMessage != null ? new Date(lastMessage.timestamp * 1000) : null,
+    timestamp: lastMessage != null ? new Date(lastMessage.timestamp) : null,
   }
 
-  const unreadCount = lastMsg.msg.msgIndex - thread.lastMsgRead
+  const unreadCount = _get(lastMsg, 'msg.msgIndex', 0) - _get(thread, 'lastMsgRead', 0)
   return (
     <Link href={`/c/${userPk}`}>
       <div className="hover:bg-gray-100 cursor-pointer px-2 w-full">
@@ -58,7 +58,9 @@ const ThreadItem = ({ userPk, lastMessage }: { userPk: PublicKey; lastMessage: M
           <div className="content" style={{ width: '430px' }}>
             <div className="flex items-center justify-between">
               <div>{name || formatPk(new PublicKey(userPk.toString()))}</div>
-              {lastMsg.msg && <div className="text-gray-600 text-xs">{formatTime(lastMsg.timestamp)}</div>}
+              {lastMsg && lastMsg.timestamp && (
+                <div className="text-gray-600 text-xs">{formatTime(lastMsg.timestamp)}</div>
+              )}
             </div>
             <div className="flex justify-between">
               {lastMsg.msg && (
@@ -99,12 +101,13 @@ const ThreadList = ({ query }: { query: string }) => {
 
     const participants = _orderBy(
       threads.map((t) => [t.participantPk, t.threadPk]),
-      (a) => lastMessages[a[1]].timestamp,
+      (a) => (lastMessages[a[1]] == null ? 0 : lastMessages[a[1]].timestamp),
       ['desc'],
     )
+
     return {
       lastMessages,
-      participants: participants,
+      participants,
       threadProfiles: s.profile,
     }
   })

@@ -71,10 +71,10 @@ const Chat = () => {
   )
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
-    if (thread.lastMsgRead < lastMessage.msgIndex) {
+    if (thread && thread.lastMsgRead < lastMessage.msgIndex) {
       dispatch(setThreadRead({ threadPk: thread.threadPk, lastMsgIndex: messages[messages.length - 1].msgIndex }))
     }
-  }, [thread.threadPk, messages, dispatch, thread.lastMsgRead])
+  }, [thread, messages, dispatch])
 
   if (userPk == null) {
     router.push('/init')
@@ -112,7 +112,7 @@ const Chat = () => {
             id: m.msgIndex,
             msg: m.msg,
             senderPk: m.senderPk,
-            timestamp: new Date(m.timestamp * 1000),
+            timestamp: new Date(m.timestamp),
           }))}
         />
         <div className="flex w-full py-2 px-2 bg-gray-400">

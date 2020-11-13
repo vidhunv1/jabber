@@ -3,7 +3,6 @@ import { PublicKey, Connection } from '@solana/web3.js'
 import { AppThunk } from '..'
 import appConfig from '../../config'
 import { getThreads, readProfile, readJabber } from '../../lib/jabber'
-import _remove from 'lodash/remove'
 import _findIndex from 'lodash/findIndex'
 import { fetchProfile } from '../profile/profileSlice'
 import { fetchMessages } from '../message/messageSlice'
@@ -36,7 +35,6 @@ const threadSlice = createSlice({
     setThread(state, action: PayloadAction<Omit<ThreadState['threads'][0], 'id'>>) {
       const id = state.count
       const index = _findIndex(state.threads, { threadPk: action.payload.threadPk })
-      console.log('INDEX: ', index)
       if (index >= 0) {
         state.threads[index] = {
           ...action.payload,
