@@ -50,6 +50,7 @@ const sendMessage = (msg: string, participantPk: string): AppThunk => async (dis
     msgKind,
   )
 
+  await sendAndConfirmTransaction('SendMessage', connection, tx, userAccount)
   dispatch(
     addMessage({
       msgPk: msgPk.toString(),
@@ -61,10 +62,9 @@ const sendMessage = (msg: string, participantPk: string): AppThunk => async (dis
       timestamp: +new Date(),
     }),
   )
-  await sendAndConfirmTransaction('SendMessage', connection, tx, userAccount)
 }
 
-const fetchMessages = (threadPk: PublicKey): AppThunk => async (dispatch, getState) => {
+const fetchMessages = (threadPk: PublicKey, ignoreSent?: boolean): AppThunk => async (dispatch, getState) => {
   // get the last available message index
   const state = getState()
   const myPk = state.wallet.publicKey
@@ -105,17 +105,19 @@ const fetchMessages = (threadPk: PublicKey): AppThunk => async (dispatch, getSta
       )
     } catch (e) {}
 
-    dispatch(
-      addMessage({
-        msgPk: m.pk.toString(),
-        msgIndex: m.id,
-        threadPk: threadStr,
-        kind: m.msg.kind,
-        senderPk: m.senderPk.toString(),
-        msg: parsedMessage,
-        timestamp: m.msg.timestamp.toNumber() * 1000,
-      }),
-    )
+    if (!ignoreSent || (ignoreSent && myPk != m.senderPk.toString())) {
+      dispatch(
+        addMessage({
+          msgPk: m.pk.toString(),
+          msgIndex: m.id,
+          threadPk: threadStr,
+          kind: m.msg.kind,
+          senderPk: m.senderPk.toString(),
+          msg: parsedMessage,
+          timestamp: m.msg.timestamp.toNumber() * 1000,
+        }),
+      )
+    }
   })
 
   console.log(`Saved ${msgs.length} messages`)

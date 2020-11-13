@@ -87,8 +87,8 @@ const Header = ({ userPk }: { userPk: PublicKey }) => {
     <header className="text-black h-16 flex items-center justify-between border-b border-gray-300 px-2 relative">
       <div className="flex">
         <h2 className="text-2xl">Chats</h2>
-        <div className="text-xs text-gray-700 bg-green-200 text-center rounded-full h-5 px-2 mt-2 ml-2 pt-px">
-          testnet
+        <div className="text-xs text-gray-500 border border-green-400 text-center rounded-full h-5 px-2 mt-2 ml-2 pt-px">
+          {appConfig.rpcUrl.replace('http://', '')}
         </div>
       </div>
       <div onClick={() => setDropdown(!dropdown)}>

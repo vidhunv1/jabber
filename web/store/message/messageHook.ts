@@ -42,7 +42,7 @@ export const useMessageSubsciption = (threadPk: PublicKey | null) => {
         const thread = Thread.decode<Thread>(Thread.schema, Thread, td.data)
         if (currThread.msgCount != thread.msgCount) {
           dispatch(setThread(parseThread(thread, threadPk, userPk)))
-          dispatch(fetchMessages(threadPk))
+          dispatch(fetchMessages(threadPk, true))
         }
       },
       'recent',

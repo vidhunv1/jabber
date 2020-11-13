@@ -1,7 +1,5 @@
 export default {
-  // programId: 'H41CfZg1WjswVM3kUvUEacmgp8WR8ZN4csJiWD1AK5ZZ',
-  // rpcUrl: 'https://testnet.solana.com',
-  programId: 'BEsuMEne4uqvE2vpWUCGYEHvm3m2cJjVMVPysrwpTzbq',
-  rpcUrl: 'http://localhost:8899',
-  environment: 'testnet',
+  programId: 'FC2BgQVaSFkoZLbgCzSsVu2TPw1xnLp2wwJZGA5KxFA2',
+  rpcUrl: 'http://206.189.88.109:8080',
+  environment: 'test',
 }

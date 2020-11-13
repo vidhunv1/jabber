@@ -20,6 +20,7 @@ import { MessageState, sendMessage } from '../../store/message/messageSlice'
 import _isArray from 'lodash/isArray'
 import _get from 'lodash/get'
 import { useNewThreadSubsription } from '../../store/thread/threadHooks'
+import Spinner from '../../components/spinner'
 
 const formatPk = (pk: PublicKey) => {
   const s = pk.toString()
@@ -48,6 +49,7 @@ const Header = ({ userPk, name }: { userPk: PublicKey; name?: string }) => {
 const Chat = () => {
   const dispatch = useDispatch()
   const router = useRouter()
+  const [isMsgSending, setMsgSending] = useState(false)
   let participantPk: string
   if (router.query.pk == null) {
     participantPk = window.location.pathname.replace('/c/', '').replace(/[^a-z0-9]/gi, '')
@@ -71,7 +73,7 @@ const Chat = () => {
   )
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
-    if (thread && thread.lastMsgRead < lastMessage.msgIndex) {
+    if (thread && lastMessage && thread.lastMsgRead < lastMessage.msgIndex) {
       dispatch(setThreadRead({ threadPk: thread.threadPk, lastMsgIndex: messages[messages.length - 1].msgIndex }))
     }
   }, [thread, messages, dispatch])
@@ -90,9 +92,17 @@ const Chat = () => {
   }
 
   const onSendMessage = async () => {
-    if (oMsg.length > 0) {
+    if (oMsg.length > 0 && !isMsgSending) {
       setOMsg('')
-      await dispatch(sendMessage(oMsg, participantPk))
+      setMsgSending(true)
+
+      try {
+        await dispatch(sendMessage(oMsg, participantPk))
+        setMsgSending(false)
+      } catch (e) {
+        console.error('Error sending message: ', JSON.stringify(e))
+        setMsgSending(false)
+      }
     }
   }
 
@@ -130,11 +140,12 @@ const Chat = () => {
               onClick={() => onSendMessage()}
               className={cn(
                 'focus:outline-none rounded-full w-12 h-12',
-                { 'bg-blue-500': oMsg.length > 0 },
-                { 'bg-gray-500': oMsg.length == 0 },
+                { 'bg-blue-500': oMsg.length > 0 || isMsgSending },
+                { 'bg-gray-500': oMsg.length == 0 && !isMsgSending },
               )}
             >
-              <FontAwesomeIcon icon={faPaperPlane} className="text-white pr-1 pt-1" size="2x" />
+              {!isMsgSending && <FontAwesomeIcon icon={faPaperPlane} className="text-white pr-1 pt-1" size="2x" />}
+              {isMsgSending && <Spinner className="ml-4" />}
             </button>
           </div>
         </div>
