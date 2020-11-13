@@ -94,6 +94,17 @@ const fetchMessages = (threadPk: PublicKey): AppThunk => async (dispatch, getSta
   )
 
   msgs.map((m) => {
+    let parsedMessage = null
+    try {
+      parsedMessage = Message.parseMessage(
+        m.msg.kind,
+        new Uint8Array(m.msg.msg),
+        m.pk,
+        userAccount,
+        new PublicKey(thread.participantPk),
+      )
+    } catch (e) {}
+
     dispatch(
       addMessage({
         msgPk: m.pk.toString(),
@@ -101,13 +112,7 @@ const fetchMessages = (threadPk: PublicKey): AppThunk => async (dispatch, getSta
         threadPk: threadStr,
         kind: m.msg.kind,
         senderPk: m.senderPk.toString(),
-        msg: Message.parseMessage(
-          m.msg.kind,
-          new Uint8Array(m.msg.msg),
-          m.pk,
-          userAccount,
-          new PublicKey(thread.participantPk),
-        ),
+        msg: parsedMessage,
         timestamp: m.msg.timestamp.toNumber() * 1000,
       }),
     )
