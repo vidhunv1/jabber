@@ -3,7 +3,8 @@
 Messaging dapp built on Solana.
 
 https://jabber-test.vercel.app
-Contact me: D2T7LaEp7SgQCZWvxbMfWym6LW2cSfX69oXpFLCDqbVS)
+
+Contact me: (D2T7LaEp7SgQCZWvxbMfWym6LW2cSfX69oXpFLCDqbVS)
 
 ## Private chats
 
