@@ -2,6 +2,10 @@
 
 Messaging dapp built on Solana.
 
+https://jabber-test.vercel.app
+
+Contact me: (D2T7LaEp7SgQCZWvxbMfWym6LW2cSfX69oXpFLCDqbVS)
+
 ## Private chats
 
 - Send end-to-end encrypted messages to any valid Solana address. Encryption is done by converting your signing keys to Curve25519 to be used in encrypting you messages.
