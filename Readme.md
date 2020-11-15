@@ -3,6 +3,7 @@
 Messaging dapp built on Solana.
 
 https://jabber-test.vercel.app
+https://vimeo.com/479480751
 
 Contact me: (D2T7LaEp7SgQCZWvxbMfWym6LW2cSfX69oXpFLCDqbVS)
 
