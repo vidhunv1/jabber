@@ -1,5 +1,6 @@
 export default {
-  programId: 'FC2BgQVaSFkoZLbgCzSsVu2TPw1xnLp2wwJZGA5KxFA2',
-  rpcUrl: 'http://206.189.88.109:8080',
+  programId: '4QVhGNocfG4hMUacGdE2H9hiuwWcydSeCy1UGn1tM3kd',
+  rpcUrl: 'https://coingrin.com:8080',
+  // rpcUrl: 'https://devnet.solana.com',
   environment: 'test',
 }

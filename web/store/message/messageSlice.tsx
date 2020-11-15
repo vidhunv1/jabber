@@ -50,7 +50,6 @@ const sendMessage = (msg: string, participantPk: string): AppThunk => async (dis
     msgKind,
   )
 
-  await sendAndConfirmTransaction('SendMessage', connection, tx, userAccount)
   dispatch(
     addMessage({
       msgPk: msgPk.toString(),
@@ -62,6 +61,7 @@ const sendMessage = (msg: string, participantPk: string): AppThunk => async (dis
       timestamp: +new Date(),
     }),
   )
+  await sendAndConfirmTransaction('SendMessage', connection, tx, userAccount)
 }
 
 const fetchMessages = (threadPk: PublicKey, ignoreSent?: boolean): AppThunk => async (dispatch, getState) => {

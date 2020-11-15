@@ -122,7 +122,7 @@ const ThreadList = ({ query }: { query: string }) => {
       : participants.filter((u) => {
           const userPk = u[0]
           const p = _find(threadProfiles, { userPk }, null)
-          return u[0].toLowerCase().includes(filter) || (p && p.name.includes(filter))
+          return userPk.toLowerCase().includes(filter) || (p && _get(p, 'name', '').toLowerCase().includes(filter))
         })
 
   return (

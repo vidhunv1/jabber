@@ -88,7 +88,7 @@ const Header = ({ userPk }: { userPk: PublicKey }) => {
       <div className="flex">
         <h2 className="text-2xl">Chats</h2>
         <div className="text-xs text-gray-500 border border-green-400 text-center rounded-full h-5 px-2 mt-2 ml-2 pt-px">
-          {appConfig.rpcUrl.replace('http://', '')}
+          {appConfig.rpcUrl.replace('https://', '')}
         </div>
       </div>
       <div onClick={() => setDropdown(!dropdown)}>
@@ -146,7 +146,9 @@ const Home = () => {
           </div>
 
           {isThreadsSynced ? (
-            <Threads query={search} />
+            <div className="overflow-y-scroll" style={{ height: '78vh' }}>
+              <Threads query={search} />
+            </div>
           ) : (
             <div className="w-full h-full mt-48 text-center text-gray-600 flex justify-center">
               <Spinner />

@@ -144,8 +144,7 @@ const Chat = () => {
                 { 'bg-gray-500': oMsg.length == 0 && !isMsgSending },
               )}
             >
-              {!isMsgSending && <FontAwesomeIcon icon={faPaperPlane} className="text-white pr-1 pt-1" size="2x" />}
-              {isMsgSending && <Spinner className="ml-4" />}
+              <FontAwesomeIcon icon={faPaperPlane} className="text-white pr-1 pt-1" size="2x" />
             </button>
           </div>
         </div>

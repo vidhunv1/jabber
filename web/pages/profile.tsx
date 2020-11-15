@@ -46,8 +46,8 @@ const Profile = () => {
     const account = new Account(new Uint8Array(JSON.parse(`[${wallet.secretKey.toString()}]`)))
     const lamportsPerMessage = price === '' ? 0 : parseFloat(price) * LAMPORTS_PER_SOL
     setLoading(true)
+    await dispatch(saveProfile(account, name, bio, new BN(lamportsPerMessage)))
     try {
-      await dispatch(saveProfile(account, name, bio, new BN(lamportsPerMessage)))
       router.push('/')
     } catch (e) {
       console.error('Error saving profile', JSON.stringify(e))
