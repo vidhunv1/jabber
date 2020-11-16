@@ -6,9 +6,16 @@ import { getMessages, sendMessage as sendMessageJabber } from '../../lib/jabber'
 import appConfig from '../../config'
 import _find from 'lodash/find'
 import _remove from 'lodash/remove'
+import _findIndex from 'lodash/findIndex'
 import { sendAndConfirmTransaction } from '../../lib/solana'
 
 export const MESSAGE_SLICE = 'message'
+
+export enum MsgMeta {
+  SENDING,
+  SENT,
+  SEND_FAILED,
+}
 export interface MessageState {
   msgPk: string
   msgIndex: number
@@ -17,6 +24,7 @@ export interface MessageState {
   kind: MessageKind
   msg: string
   timestamp: number
+  meta: MsgMeta[]
 }
 
 const initialState: MessageState[] = []
@@ -28,6 +36,12 @@ const messageSlice = createSlice({
     addMessage(state, action: PayloadAction<MessageState>) {
       _remove(state, { msgPk: action.payload.msgPk })
       state.push(action.payload)
+    },
+    setMeta(state, action: PayloadAction<{ msgPk: string; meta: MsgMeta[] }>) {
+      const index = _findIndex(state, { msgPk: action.payload.msgPk })
+      if (index >= 0) {
+        state[index].meta = action.payload.meta
+      }
     },
   },
 })
@@ -59,9 +73,17 @@ const sendMessage = (msg: string, participantPk: string): AppThunk => async (dis
       senderPk: userAccount.publicKey.toString(),
       msg,
       timestamp: +new Date(),
+      meta: [],
     }),
   )
-  await sendAndConfirmTransaction('SendMessage', connection, tx, userAccount)
+  try {
+    dispatch(setMeta({ msgPk: msgPk.toString(), meta: [MsgMeta.SENDING] }))
+    await sendAndConfirmTransaction('SendMessage', connection, tx, userAccount)
+    dispatch(setMeta({ msgPk: msgPk.toString(), meta: [MsgMeta.SENT] }))
+  } catch (e) {
+    console.error('Error sending message: ', msg)
+    dispatch(setMeta({ msgPk: msgPk.toString(), meta: [MsgMeta.SEND_FAILED] }))
+  }
 }
 
 const fetchMessages = (threadPk: PublicKey, ignoreSent?: boolean): AppThunk => async (dispatch, getState) => {
@@ -115,6 +137,7 @@ const fetchMessages = (threadPk: PublicKey, ignoreSent?: boolean): AppThunk => a
           senderPk: m.senderPk.toString(),
           msg: parsedMessage,
           timestamp: m.msg.timestamp.toNumber() * 1000,
+          meta: m.senderPk.toString() === myPk ? [MsgMeta.SENT] : [],
         }),
       )
     }
@@ -124,5 +147,5 @@ const fetchMessages = (threadPk: PublicKey, ignoreSent?: boolean): AppThunk => a
 }
 
 export { fetchMessages, sendMessage }
-export const { addMessage } = messageSlice.actions
+export const { addMessage, setMeta } = messageSlice.actions
 export default messageSlice.reducer

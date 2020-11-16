@@ -20,7 +20,6 @@ import { MessageState, sendMessage } from '../../store/message/messageSlice'
 import _isArray from 'lodash/isArray'
 import _get from 'lodash/get'
 import { useNewThreadSubsription } from '../../store/thread/threadHooks'
-import Spinner from '../../components/spinner'
 
 const formatPk = (pk: PublicKey) => {
   const s = pk.toString()
@@ -49,7 +48,6 @@ const Header = ({ userPk, name }: { userPk: PublicKey; name?: string }) => {
 const Chat = () => {
   const dispatch = useDispatch()
   const router = useRouter()
-  const [isMsgSending, setMsgSending] = useState(false)
   let participantPk: string
   if (router.query.pk == null) {
     participantPk = window.location.pathname.replace('/c/', '').replace(/[^a-z0-9]/gi, '')
@@ -92,16 +90,13 @@ const Chat = () => {
   }
 
   const onSendMessage = async () => {
-    if (oMsg.length > 0 && !isMsgSending) {
+    if (oMsg.length > 0) {
       setOMsg('')
-      setMsgSending(true)
 
       try {
         await dispatch(sendMessage(oMsg, participantPk))
-        setMsgSending(false)
       } catch (e) {
         console.error('Error sending message: ', JSON.stringify(e))
-        setMsgSending(false)
       }
     }
   }
@@ -123,6 +118,7 @@ const Chat = () => {
             msg: m.msg,
             senderPk: m.senderPk,
             timestamp: new Date(m.timestamp),
+            meta: m.meta,
           }))}
         />
         <div className="flex w-full py-2 px-2 bg-gray-400">
@@ -140,8 +136,8 @@ const Chat = () => {
               onClick={() => onSendMessage()}
               className={cn(
                 'focus:outline-none rounded-full w-12 h-12',
-                { 'bg-blue-500': oMsg.length > 0 || isMsgSending },
-                { 'bg-gray-500': oMsg.length == 0 && !isMsgSending },
+                { 'bg-blue-500': oMsg.length > 0 },
+                { 'bg-gray-500': oMsg.length == 0 },
               )}
             >
               <FontAwesomeIcon icon={faPaperPlane} className="text-white pr-1 pt-1" size="2x" />

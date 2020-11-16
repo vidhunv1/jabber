@@ -62,10 +62,13 @@ const saveProfile = (account: Account, name: string, bio: string, lamportsPerMes
   // Request Airdrop if test
   // TODO: Will get airdrop everytime they change profile!
   if (config.environment === 'test' || config.environment === 'dev') {
-    const requiredLamports = 10000000000
+    const requiredLamports = 1000000000
     const connection = new Connection(appConfig.rpcUrl, 'recent')
-    console.log('Requesting airdrop')
-    await airdrop(connection, account.publicKey.toString(), requiredLamports)
+    const accInfo = await connection.getAccountInfo(account.publicKey)
+    if (!accInfo || (accInfo && accInfo.lamports < requiredLamports)) {
+      console.log('Requesting airdrop')
+      await airdrop(connection, account.publicKey.toString(), requiredLamports)
+    }
   }
 
   const tx = await setUserProfile(connection, account, new PublicKey(appConfig.programId), {

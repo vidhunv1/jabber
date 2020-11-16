@@ -1,6 +1,6 @@
 export default {
-  programId: '4QVhGNocfG4hMUacGdE2H9hiuwWcydSeCy1UGn1tM3kd',
-  rpcUrl: 'https://coingrin.com:8080',
-  // rpcUrl: 'https://devnet.solana.com',
+  programId: 'Gk3pVnNut49YxiKMeDd4gnfimWLDoUnvAS7Zc1pN4jgd',
+  // rpcUrl: 'https://coingrin.com:8080',
+  rpcUrl: 'https://testnet.solana.com',
   environment: 'test',
 }
