@@ -12,13 +12,13 @@ Public blockchains has popularized the use of self-sovereign identities, this is
 
 The shift from emails to crypto identities in web3 applications have made it hard for web3 applications to communicate with their users in a decentralized way. A PubSub between protocols and users would allow communication of important alerts like liquidations, DEX trades, governance, marketing etc.
 
-We expect the protocol to be used in the same way emails are used today, for async communication, your public keys become the first point of contact for users and services in web3 ecosystem.
+The protocol is designed to be used in the same way emails are used today, for async communication, your public keys become the first point of contact for users and services in the web3 ecosystem.
 
 ## Core components
 
-1. Messaging protocol - The program and interface for on-chain messaging including 1-1 messages, PubSub and public groups.
-2. Push notification nodes - A decentralized network of nodes that acts as a bridge between the blockchain and centralized systems for push notifications(browser/email/FCM/APNS/SMS etc).
-3. Clients - Web UI, JS & mobile SDK's that gives a simple interface to developers for sending and receiving the on-chain messages.
+1. **Messaging protocol** - The program and interface for on-chain messaging including 1-1 messages, PubSub and public groups.
+2. **Push notification nodes** - A decentralized network of nodes that acts as a bridge between the blockchain and centralized systems for push notifications(browser/email/FCM/APNS/SMS etc).
+3. **Clients** - Web UI, JS & mobile SDK's that gives a simple interface to developers for sending and receiving the on-chain messages.
 
 ## Specification
 
@@ -104,7 +104,7 @@ With our first product release we hope to maximize the chat interactions and the
 
 Current status:
 
-- Messaging protocol - In progress(90%)
+- Messaging protocol - In progress
 - vCard / identity - In progress
 - JS client SDK - TBD
 - Web GUI - TBD
@@ -121,4 +121,4 @@ Future roadmap:
 
 [2] - https://docs.solana.com/developing/programming-model/accounts#rent-exemption
 
-[3] https://docs.solana.com/developing/programming-model/accounts#calculation-of-rent
+[3] - https://docs.solana.com/developing/programming-model/accounts#calculation-of-rent
