@@ -10,9 +10,8 @@ https://vimeo.com/479480751
 
 ## Private chats
 
-- Send end-to-end encrypted messages to any valid Solana address. Encryption is done by converting your signing keys to Curve25519 to be used in encrypting you messages.
+- Send end-to-end encrypted messages to any valid Solana address. Your signing keys are converted to Curve25519 to be used in encrypting the messages.
 - Cheap and real-time. Messages cost 0.0015 SOL for a tweet length message stored permanently. Temporary storage will be much cheaper(it will work like [disappearing messages](https://faq.whatsapp.com/general/chats/about-disappearing-messages/?lang=fb)!).
-- (WIP) Get paid to receive messages. Similar to what [earn-dot-com](https://news.earn.com/get-paid-to-read-email-from-outside-your-network-with-a-21-profile-8a388548a9ef) did for emails.
 
 ## Group chats
 
