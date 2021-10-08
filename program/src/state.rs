@@ -1,8 +1,9 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_sdk::{
+use solana_program::{
     clock::UnixTimestamp,
     program_error::ProgramError,
     pubkey::{Pubkey, PubkeyError, MAX_SEED_LEN},
+    program_pack::{IsInitialized, Pack, Sealed},
 };
 
 pub type PublicKey = [u8; 32];
@@ -73,6 +74,9 @@ pub struct Message {
     pub msg: Vec<u8>,
     pub timestamp: UnixTimestamp,
 }
+
+impl Sealed for Message {}
+
 impl Message {
     pub fn create_with_seed(
         index: u32,
@@ -101,6 +105,6 @@ impl Jabber {
     }
 }
 pub mod owner_account {
-    use solana_sdk::declare_id;
+    use solana_program::declare_id;
     declare_id!("D2T7LaEp7SgQCZWvxbMfWym6LW2cSfX69oXpFLCDqbVS");
 }

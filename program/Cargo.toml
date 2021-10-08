@@ -8,15 +8,15 @@ license = "Apache-2.0"
 edition = "2018"
 
 [features]
-program = ["solana-sdk/program"]
-test = ["solana-sdk/default"]
-default = []
 no-entrypoint = []
+test-bpf = []
 
 [dependencies]
-solana-sdk = { version = "1.3.17", default-features = false }
-thiserror = "1.0"
-borsh-v = "0.7.3" # https://github.com/vidhunv1/borsh/
+num-derive = "0.3.3"
+solana-program = "1.7.10"
+num-traits = "0.2"
+thiserror = "1.0.24"
+borsh = "0.9.1"
 
 [dev-dependencies]
 rand = { version = "0.7.0"}

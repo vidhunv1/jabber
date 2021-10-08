@@ -1,13 +1,14 @@
 use crate::error::JabberError;
+use crate::processor::{send_message, set_user_profile};
 use crate::state::{Jabber, Message, Profile, Serdes, Thread};
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_sdk::{
+use solana_program::{
     account_info::next_account_info,
     account_info::AccountInfo,
     clock::Clock,
     entrypoint::ProgramResult,
-    info,
+    msg,
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
@@ -18,11 +19,7 @@ use solana_sdk::{
 pub enum JabberInstruction {
     /// 0. `[is_signer]`
     /// 1. `[writable]` Signer's UerProfile account'
-    SetUserProfile {
-        name: Option<String>,
-        bio: Option<String>,
-        lamports_per_message: Option<u64>,
-    },
+    SetUserProfile(set_user_profile::Params),
 
     // 0. `[is_signer]` Sender
     // 1. `[]` Receiver
@@ -34,10 +31,7 @@ pub enum JabberInstruction {
     // 7. `[writable]` Jabber Account
     // 8. `[]` SYS_VAR_RENT
     // 9. `[]` SYS_VAR_CLOCK
-    SendMessage {
-        kind: u8,
-        msg: Vec<u8>,
-    },
+    SendMessage(send_message::Params),
 }
 
 impl JabberInstruction {
@@ -69,15 +63,15 @@ impl JabberInstruction {
                     return Err(ProgramError::InvalidArgument);
                 }
                 if *jabber_acc.key != Jabber::get_account(program_id)? {
-                    info!("Jabber account invalid");
+                    msg!("Jabber account invalid");
                     return Err(ProgramError::InvalidAccountData);
                 }
                 if !rent::check_id(sysvar_rent_acc.key) {
-                    info!("Rent system account is not valid");
+                    msg!("Rent system account is not valid");
                     return Err(ProgramError::InvalidAccountData);
                 }
                 if !clock::check_id(sysvar_clock_acc.key) {
-                    info!("Clock system account is not valid");
+                    msg!("Clock system account is not valid");
                     return Err(ProgramError::InvalidAccountData);
                 }
                 let timestamp = &Clock::from_account_info(sysvar_clock_acc)?.unix_timestamp;
@@ -144,7 +138,7 @@ impl JabberInstruction {
                         program_id,
                     )?
                 {
-                    info!("Message account invalid");
+                    msg!("Message account invalid");
                     return Err(JabberError::AccountNotDeterministic.into());
                 }
 
@@ -238,13 +232,10 @@ impl JabberInstruction {
     }
 }
 
-#[cfg(not(target_arch = "bpf"))]
-solana_sdk::program_stubs!();
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use solana_sdk::{clock::Epoch, pubkey::Pubkey};
+    use solana_program::{clock::Epoch, pubkey::Pubkey};
 
     fn rand_pk() -> Pubkey {
         Pubkey::new(&rand::random::<[u8; 32]>())
@@ -517,14 +508,14 @@ mod test {
             burn_percent: 5,
         };
         let rent_account = rent.create_account(1);
-        let rent_pubkey = solana_sdk::sysvar::rent::id();
+        let rent_pubkey = solana_program::sysvar::rent::id();
         let mut rent_tuple = (rent_pubkey, rent_account);
         // 8
         let rent_info = AccountInfo::from(&mut rent_tuple);
 
-        let c = solana_sdk::clock::Clock::default();
+        let c = solana_program::clock::Clock::default();
         let clock_account = c.create_account(1);
-        let clock_pubkey = solana_sdk::sysvar::clock::id();
+        let clock_pubkey = solana_program::sysvar::clock::id();
         let mut clock_tuple = (clock_pubkey, clock_account);
         let clock_info = AccountInfo::from(&mut clock_tuple);
         let accounts = [

@@ -1,8 +1,8 @@
-use solana_sdk::{decode_error::DecodeError, program_error::ProgramError};
+use num_derive::FromPrimitive;
+use solana_program::{decode_error::DecodeError, program_error::ProgramError};
 use thiserror::Error;
 
-#[derive(Error, Debug)]
-#[repr(u8)]
+#[derive(Error, Debug, Clone, FromPrimitive)]
 pub enum JabberError {
     #[error("Account not generated deterministically")]
     AccountNotDeterministic = 0,
