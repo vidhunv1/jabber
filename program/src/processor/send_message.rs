@@ -1,4 +1,4 @@
-use crate::utils::{check_account_key, check_account_owner, check_signer};
+use crate::utils::{check_account_key, check_account_owner, check_signer, try_from_slice_checked};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -7,11 +7,12 @@ use solana_program::{
     msg,
     program_error::ProgramError,
     pubkey::Pubkey,
+    rent::Rent,
     sysvar::Sysvar,
 };
 
 use crate::error::JabberError;
-use crate::state::{Profile, Thread, Jabber, Message};
+use crate::state::{Jabber, Message, Profile, Tag, Thread};
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug)]
 pub struct Params {
@@ -89,7 +90,7 @@ pub(crate) fn process(
         return Err(JabberError::AccountNotDeterministic.into());
     }
 
-    let r_msg_count = match Thread::unpack(&accounts.received_thread.try_borrow_data()?) {
+    let r_msg_count = match Thread::from_account_info(&accounts.received_thread) {
         Ok(u) => u.msg_count,
         _ => 0,
     };
@@ -108,14 +109,13 @@ pub(crate) fn process(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    let rent = &Rent::from_account_info(sysvar_rent_acc)?;
+    let rent = &Rent::get()?;
 
     if !rent.is_exempt(thread_acc.lamports(), thread_acc.data_len()) {
         return Err(JabberError::AccountNotRentExempt.into());
     }
 
-    let mut thread_data = thread_acc.try_borrow_mut_data()?;
-    let mut thread = Thread::unpack(&thread_data).map(|mut u| {
+    let mut thread = Thread::from_account_info(thread_acc).map(|mut u| {
         if u.msg_count == 0 {
             u.msg_count = 1;
         }
@@ -137,43 +137,40 @@ pub(crate) fn process(
 
     // first time?
     if thread.msg_count == 1 {
-        thread.u1_pk = accounts.sender.key.to_bytes();
-        thread.u2_pk = accounts.receiver.key.to_bytes();
+        thread.u1_pk = *accounts.sender.key;
+        thread.u2_pk = *accounts.receiver.key;
 
-        let mut s_data = accounts.sender_profile.try_borrow_mut_data()?;
-        let mut s = Profile::unpack(&s_data)?;
+        let mut s = Profile::from_account_info(accounts.sender_profile)?;
         // Update the thread tail for sender.
         thread.prev_thread_u1_pk = s.thread_tail_pk;
-        s.thread_tail_pk = Some(thread_acc.key.to_bytes());
-        s.pack(&mut s_data);
+        s.thread_tail_pk = Some(*thread_acc.key);
+        s.save(&mut accounts.sender_profile.try_borrow_mut_data()?);
 
         // Update the thread tail for receiver. We add it to the program
         // root account if their profile does not exist.
         if r_profile_exists {
-            let mut r_data = accounts.receiver_profile.try_borrow_mut_data()?;
-            let mut r = Profile::unpack(&r_data)?;
+            let mut r = Profile::from_account_info(accounts.receiver_profile)?;
             thread.prev_thread_u2_pk = r.thread_tail_pk;
-            r.thread_tail_pk = Some(thread_acc.key.to_bytes());
-            r.pack(&mut r_data);
+            r.thread_tail_pk = Some(*thread_acc.key);
+            r.save(&mut accounts.receiver_profile.try_borrow_mut_data()?);
         } else {
             // The reciever is not registered, point thread to unregistered users.
-            let mut jabber_data = accounts.jabber.try_borrow_mut_data()?;
-            let mut jabber = Jabber::unpack(&jabber_data)?;
+            let mut jabber = Jabber::from_account_info(&accounts.jabber)?;
             thread.prev_thread_u2_pk = jabber.unregistered_thread_tail_pk;
-            jabber.unregistered_thread_tail_pk = Some(thread_acc.key.to_bytes());
-            jabber.pack(&mut jabber_data);
+            jabber.unregistered_thread_tail_pk = Some(*thread_acc.key);
+            jabber.save(&mut accounts.receiver_profile.try_borrow_mut_data()?);
         }
     }
 
     let message = Message {
+        tag: Tag::Message,
         kind: params.kind,
         msg: params.message,
         timestamp: timestamp,
     };
-    let mut message_data = accounts.message.try_borrow_mut_data()?;
-    message.pack(&mut message_data);
+    message.save(&mut accounts.message.try_borrow_mut_data()?);
     thread.msg_count = thread.msg_count + 1;
-    thread.pack(&mut thread_data);
+    thread.save(&mut thread_acc.try_borrow_mut_data()?);
 
     Ok(())
 }

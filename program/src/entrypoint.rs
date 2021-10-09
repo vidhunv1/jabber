@@ -40,6 +40,12 @@ impl PrintProgramError for JabberError {
             JabberError::ChatThreadExists => {
                 msg!("Error: Chat thread exists")
             }
+            JabberError::WrongProfileOwner => {
+                msg!("Error: User profile must be owned by the program")
+            }
+            JabberError::DataTypeMismatch => {
+                msg!("Error: Data type mismatch")
+            }
         }
     }
 }

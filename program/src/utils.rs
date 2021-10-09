@@ -1,16 +1,17 @@
+use borsh::BorshDeserialize;
 use solana_program::{
-    account_info::AccountInfo, entrypoint::ProgramResult, program_error::ProgramError,
-    pubkey::Pubkey,
+    account_info::AccountInfo, borsh::try_from_slice_unchecked, entrypoint::ProgramResult,
+    program_error::ProgramError, pubkey::Pubkey,
 };
 
-use crate::error::DexError;
+use crate::{error::JabberError, state::Tag};
 
 // Safety verification functions
 pub fn check_account_key(
     account: &AccountInfo,
     key: &Pubkey,
-    error: DexError,
-) -> Result<(), DexError> {
+    error: JabberError,
+) -> Result<(), JabberError> {
     if account.key != key {
         return Err(error);
     }
@@ -20,8 +21,8 @@ pub fn check_account_key(
 pub fn check_account_owner(
     account: &AccountInfo,
     owner: &Pubkey,
-    error: DexError,
-) -> Result<(), DexError> {
+    error: JabberError,
+) -> Result<(), JabberError> {
     if account.owner != owner {
         return Err(error);
     }
@@ -33,4 +34,20 @@ pub fn check_signer(account: &AccountInfo) -> ProgramResult {
         return Err(ProgramError::MissingRequiredSignature);
     }
     Ok(())
+}
+
+pub fn try_from_slice_checked<T: BorshDeserialize>(
+    data: &[u8],
+    data_type: Tag,
+    data_size: usize,
+) -> Result<T, ProgramError> {
+    if (data[0] != data_type as u8 && data[0] != Tag::Uninitialized as u8)
+        || data.len() != data_size
+    {
+        return Err(JabberError::DataTypeMismatch.into());
+    }
+
+    let result: T = try_from_slice_unchecked(data)?;
+
+    Ok(result)
 }
