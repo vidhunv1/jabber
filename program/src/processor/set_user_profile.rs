@@ -42,7 +42,7 @@ impl<'a, 'b: 'a> Accounts<'a, 'b> {
             return Err(ProgramError::AccountDataTooSmall);
         }
 
-        let expected_user_profile_pk = Profile::create_with_seed(accounts.user.key, &program_id)?;
+        let expected_user_profile_pk = Profile::find_from_user_key(accounts.user.key, &program_id);
 
         check_account_key(
             accounts.user_profile,
@@ -67,7 +67,8 @@ pub(crate) fn process(
 
     let accounts = Accounts::parse(program_id, accounts)?;
 
-    let profile = Profile::from_account_info(&accounts.user_profile).unwrap_or(Profile::default());
+    let mut profile =
+        Profile::from_account_info(&accounts.user_profile).unwrap_or(Profile::default());
 
     profile.lamports_per_message = lamports_per_message.unwrap_or(0);
     profile.bio = bio;

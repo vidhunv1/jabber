@@ -34,13 +34,13 @@ pub struct Profile {
     pub name: Option<String>,
     pub bio: Option<String>,
     pub lamports_per_message: u64,
-    pub thread_tail_pk: Option<Pubkey>,
+    pub thread_tail_key: Option<Pubkey>,
 }
 impl Profile {
     pub const SEED: &'static str = "profile";
     pub const MIN_SPACE: usize = 228;
 
-    pub fn find_from_user_key(self, user_key: &Pubkey, program_id: &Pubkey) -> Pubkey {
+    pub fn find_from_user_key(user_key: &Pubkey, program_id: &Pubkey) -> Pubkey {
         let (user_profile_key, _) = Pubkey::find_program_address(
             &[Profile::SEED.as_bytes(), &user_key.to_bytes()],
             program_id,
@@ -67,7 +67,7 @@ impl Default for Profile {
             name: None,
             bio: None,
             lamports_per_message: 0,
-            thread_tail_pk: None,
+            thread_tail_key: None,
         }
     }
 }
@@ -76,10 +76,10 @@ impl Default for Profile {
 pub struct Thread {
     pub tag: Tag,
     pub msg_count: u32,
-    pub prev_thread_u1_pk: Option<Pubkey>,
-    pub prev_thread_u2_pk: Option<Pubkey>,
-    pub u1_pk: Pubkey,
-    pub u2_pk: Pubkey,
+    pub prev_thread_sender_key: Option<Pubkey>,
+    pub prev_thread_receiver_key: Option<Pubkey>,
+    pub sender_key: Pubkey,
+    pub receiver_key: Pubkey,
 }
 
 impl Thread {

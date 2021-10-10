@@ -24,7 +24,7 @@ struct Accounts<'a, 'b: 'a> {
     sender: &'a AccountInfo<'b>,
     receiver: &'a AccountInfo<'b>,
     sender_thread: &'a AccountInfo<'b>,
-    received_thread: &'a AccountInfo<'b>,
+    receiver_thread: &'a AccountInfo<'b>,
     sender_profile: &'a AccountInfo<'b>,
     receiver_profile: &'a AccountInfo<'b>,
     message: &'a AccountInfo<'b>,
@@ -41,7 +41,7 @@ impl<'a, 'b: 'a> Accounts<'a, 'b> {
             sender: next_account_info(accounts_iter)?,
             receiver: next_account_info(accounts_iter)?,
             sender_thread: next_account_info(accounts_iter)?,
-            received_thread: next_account_info(accounts_iter)?,
+            receiver_thread: next_account_info(accounts_iter)?,
             sender_profile: next_account_info(accounts_iter)?,
             receiver_profile: next_account_info(accounts_iter)?,
             message: next_account_info(accounts_iter)?,
@@ -71,33 +71,35 @@ pub(crate) fn process(
     if accounts.sender_profile.try_data_len()? < Profile::MIN_SPACE {
         return Err(ProgramError::UninitializedAccount);
     }
-    let r_profile_exists = accounts.receiver_profile.try_data_len()? >= Profile::MIN_SPACE;
+    let receiver_profile_exists = accounts.receiver_profile.try_data_len()? >= Profile::MIN_SPACE;
 
     // Are the profile accounts valid?
-    if *accounts.sender_profile.key != Profile::create_with_seed(&accounts.sender.key, program_id)?
+    if *accounts.sender_profile.key != Profile::find_from_user_key(&accounts.sender.key, program_id)
         || *accounts.receiver_profile.key
-            != Profile::create_with_seed(&accounts.receiver.key, program_id)?
+            != Profile::find_from_user_key(&accounts.receiver.key, program_id)
     {
         return Err(JabberError::AccountNotDeterministic.into());
     }
 
     // Are the thread accounts valid?
     if *accounts.sender_thread.key
-        != Thread::create_with_seed(&accounts.sender.key, &accounts.receiver.key, program_id)?
-        || *accounts.received_thread.key
-            != Thread::create_with_seed(&accounts.receiver.key, &accounts.sender.key, program_id)?
+        != Thread::find_from_users_keys(&accounts.sender.key, &accounts.receiver.key, program_id)
+        || *accounts.receiver_thread.key
+            != Thread::find_from_users_keys(
+                &accounts.receiver.key,
+                &accounts.sender.key,
+                program_id,
+            )
     {
         return Err(JabberError::AccountNotDeterministic.into());
     }
 
-    let r_msg_count = match Thread::from_account_info(&accounts.received_thread) {
-        Ok(u) => u.msg_count,
-        _ => 0,
-    };
+    let receiver_msg_count =
+        Thread::from_account_info(&accounts.receiver_thread).map_or(0, |t| t.msg_count);
 
     // Choose the oldest Thread account.
-    let thread_acc = if r_msg_count > 0 {
-        accounts.received_thread
+    let thread_acc = if receiver_msg_count > 0 {
+        accounts.receiver_thread
     } else {
         if accounts.sender_thread.try_data_len()? < Thread::MIN_SPACE {
             return Err(ProgramError::AccountDataTooSmall);
@@ -124,12 +126,12 @@ pub(crate) fn process(
 
     // Message should be valid
     if *accounts.message.key
-        != Message::create_with_seed(
+        != Message::find_with_seed(
             thread.msg_count,
             accounts.sender.key,
             accounts.receiver.key,
             program_id,
-        )?
+        )
     {
         msg!("Message account invalid");
         return Err(JabberError::AccountNotDeterministic.into());
@@ -137,26 +139,26 @@ pub(crate) fn process(
 
     // first time?
     if thread.msg_count == 1 {
-        thread.u1_pk = *accounts.sender.key;
-        thread.u2_pk = *accounts.receiver.key;
+        thread.sender_key = *accounts.sender.key;
+        thread.receiver_key = *accounts.receiver.key;
 
-        let mut s = Profile::from_account_info(accounts.sender_profile)?;
+        let mut sender_profile = Profile::from_account_info(accounts.sender_profile)?;
         // Update the thread tail for sender.
-        thread.prev_thread_u1_pk = s.thread_tail_pk;
-        s.thread_tail_pk = Some(*thread_acc.key);
-        s.save(&mut accounts.sender_profile.try_borrow_mut_data()?);
+        thread.prev_thread_sender_key = sender_profile.thread_tail_key;
+        sender_profile.thread_tail_key = Some(*thread_acc.key);
+        sender_profile.save(&mut accounts.sender_profile.try_borrow_mut_data()?);
 
         // Update the thread tail for receiver. We add it to the program
         // root account if their profile does not exist.
-        if r_profile_exists {
-            let mut r = Profile::from_account_info(accounts.receiver_profile)?;
-            thread.prev_thread_u2_pk = r.thread_tail_pk;
-            r.thread_tail_pk = Some(*thread_acc.key);
-            r.save(&mut accounts.receiver_profile.try_borrow_mut_data()?);
+        if receiver_profile_exists {
+            let mut receiver_profile = Profile::from_account_info(accounts.receiver_profile)?;
+            thread.prev_thread_receiver_key = receiver_profile.thread_tail_key;
+            receiver_profile.thread_tail_key = Some(*thread_acc.key);
+            receiver_profile.save(&mut accounts.receiver_profile.try_borrow_mut_data()?);
         } else {
             // The reciever is not registered, point thread to unregistered users.
             let mut jabber = Jabber::from_account_info(&accounts.jabber)?;
-            thread.prev_thread_u2_pk = jabber.unregistered_thread_tail_pk;
+            thread.prev_thread_receiver_key = jabber.unregistered_thread_tail_pk;
             jabber.unregistered_thread_tail_pk = Some(*thread_acc.key);
             jabber.save(&mut accounts.receiver_profile.try_borrow_mut_data()?);
         }
@@ -174,3 +176,4 @@ pub(crate) fn process(
 
     Ok(())
 }
+
