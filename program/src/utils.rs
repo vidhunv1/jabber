@@ -1,7 +1,8 @@
 use borsh::BorshDeserialize;
 use solana_program::{
     account_info::AccountInfo, borsh::try_from_slice_unchecked, entrypoint::ProgramResult,
-    program_error::ProgramError, pubkey::Pubkey,
+    program::invoke_signed, program_error::ProgramError, pubkey::Pubkey, rent::Rent,
+    system_instruction::create_account, system_program, sysvar::Sysvar,
 };
 
 use crate::{error::JabberError, state::Tag};
@@ -50,4 +51,33 @@ pub fn try_from_slice_checked<T: BorshDeserialize>(
     let result: T = try_from_slice_unchecked(data)?;
 
     Ok(result)
+}
+
+pub fn create_program_account<'a, 'b: 'a>(
+    space: u64,
+    from_account: &'a AccountInfo<'b>,
+    to_account: &'a AccountInfo<'b>,
+    system_program: &'a AccountInfo<'b>,
+    seeds: &[u8],
+    program_id: &Pubkey,
+) -> ProgramResult {
+    let lamports = Rent::get()?.minimum_balance(space as usize);
+
+    let allocate_account = create_account(
+        from_account.key, // Fee payer
+        to_account.key,
+        lamports,
+        space,
+        program_id,
+    );
+
+    invoke_signed(
+        &allocate_account,
+        &[
+            system_program.clone(),
+            from_account.clone(),
+            to_account.clone(),
+        ],
+        &[&[seeds]],
+    )
 }

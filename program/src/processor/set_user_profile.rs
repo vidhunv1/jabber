@@ -1,6 +1,6 @@
 use crate::error::JabberError;
 use crate::state::Profile;
-use crate::utils::{check_account_owner, check_signer};
+use crate::utils::{check_account_key, check_account_owner, check_signer};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -38,6 +38,17 @@ impl<'a, 'b: 'a> Accounts<'a, 'b> {
             program_id,
             JabberError::WrongProfileOwner,
         )?;
+        if accounts.user_profile.try_data_len().unwrap() < Profile::MIN_SPACE {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        let expected_user_profile_pk = Profile::create_with_seed(accounts.user.key, &program_id)?;
+
+        check_account_key(
+            accounts.user_profile,
+            &expected_user_profile_pk,
+            JabberError::AccountNotDeterministic,
+        )?;
 
         Ok(accounts)
     }
@@ -56,34 +67,13 @@ pub(crate) fn process(
 
     let accounts = Accounts::parse(program_id, accounts)?;
 
-    let expected_user_profile_pk = Profile::create_with_seed(accounts.user.key, &program_id)?;
-    if expected_user_profile_pk != *accounts.user_profile.key {
-        return Err(JabberError::AccountNotDeterministic.into());
-    }
-    if accounts.user_profile.owner != program_id {
-        return Err(ProgramError::InvalidAccountData);
-    }
-    if accounts.user_profile.try_data_len().unwrap() < Profile::MIN_SPACE {
-        return Err(ProgramError::AccountDataTooSmall);
-    }
+    let profile = Profile::from_account_info(&accounts.user_profile).unwrap_or(Profile::default());
 
-    let decoded = Profile::from_account_info(&accounts.user_profile);
+    profile.lamports_per_message = lamports_per_message.unwrap_or(0);
+    profile.bio = bio;
+    profile.name = name;
 
-    let mut out = match decoded {
-        Ok(u) => u,
-        Err(_) => Profile::default(),
-    };
-    if let Some(i) = lamports_per_message {
-        out.lamports_per_message = i;
-    }
-    if let Some(i) = name {
-        out.name = Some(i);
-    }
-    if let Some(i) = bio {
-        out.bio = Some(i);
-    }
-
-    out.save(&mut accounts.user_profile.try_borrow_mut_data()?);
+    profile.save(&mut accounts.user_profile.try_borrow_mut_data()?);
 
     Ok(())
 }

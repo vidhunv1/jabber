@@ -4,7 +4,7 @@ use solana_program::{
     account_info::AccountInfo,
     clock::UnixTimestamp,
     program_error::ProgramError,
-    pubkey::{Pubkey, PubkeyError, MAX_SEED_LEN},
+    pubkey::{Pubkey, MAX_SEED_LEN},
 };
 
 pub const MAX_NAME_LENGTH: usize = 32;
@@ -40,8 +40,12 @@ impl Profile {
     pub const SEED: &'static str = "profile";
     pub const MIN_SPACE: usize = 228;
 
-    pub fn create_with_seed(user_pk: &Pubkey, program_id: &Pubkey) -> Result<Pubkey, PubkeyError> {
-        Pubkey::create_with_seed(&user_pk, Profile::SEED, &program_id)
+    pub fn find_from_user_key(self, user_key: &Pubkey, program_id: &Pubkey) -> Pubkey {
+        let (user_profile_key, _) = Pubkey::find_program_address(
+            &[Profile::SEED.as_bytes(), &user_key.to_bytes()],
+            program_id,
+        );
+        return user_profile_key;
     }
 
     pub fn save(&self, mut dst: &mut [u8]) {
@@ -80,16 +84,22 @@ pub struct Thread {
 
 impl Thread {
     pub const MIN_SPACE: usize = 134;
-    pub fn create_with_seed(
+    pub const SEED: &'static str = "thread";
+
+    pub fn find_from_users_keys(
         creator_pk: &Pubkey,
         friend_pk: &Pubkey,
         program_id: &Pubkey,
-    ) -> Result<Pubkey, PubkeyError> {
-        Pubkey::create_with_seed(
-            creator_pk,
-            &friend_pk.to_string()[..MAX_SEED_LEN],
+    ) -> Pubkey {
+        let (thread_key, _) = Pubkey::find_program_address(
+            &[
+                Thread::SEED.as_bytes(),
+                &creator_pk.to_bytes(),
+                &friend_pk.to_bytes(),
+            ],
             program_id,
-        )
+        );
+        return thread_key;
     }
 
     pub fn save(&self, mut dst: &mut [u8]) {
@@ -113,19 +123,26 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn create_with_seed(
+    pub const SEED: &'static str = "message";
+
+    pub fn find_with_seed(
         index: u32,
         from_pk: &Pubkey,
         to_pk: &Pubkey,
         program_id: &Pubkey,
-    ) -> Result<Pubkey, PubkeyError> {
+    ) -> Pubkey {
         let i = index.to_string();
         let end = MAX_SEED_LEN - i.len();
-        Pubkey::create_with_seed(
-            from_pk,
-            &[i, to_pk.to_string()[..end].to_string()].concat(),
+        let (message_key, _) = Pubkey::find_program_address(
+            &[
+                Message::SEED.as_bytes(),
+                i.as_bytes(),
+                &from_pk.to_bytes(),
+                &to_pk.to_bytes(),
+            ],
             program_id,
-        )
+        );
+        return message_key;
     }
 
     pub fn save(&self, mut dst: &mut [u8]) {
