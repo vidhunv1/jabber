@@ -2,6 +2,7 @@ use crate::utils::try_from_slice_checked;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::AccountInfo,
+    clock::Clock,
     clock::UnixTimestamp,
     program_error::ProgramError,
     pubkey::{Pubkey, MAX_SEED_LEN},
@@ -11,13 +12,11 @@ pub const MAX_NAME_LENGTH: usize = 32;
 pub const MAX_BIO_LENGTH: usize = 100;
 pub const MAX_MSG_LEN: usize = 1_000; // TODO change
 
-pub const MAX_PROFILE_LEN: usize = 1 + MAX_NAME_LENGTH + MAX_BIO_LENGTH + 8 + 32;
+pub const MAX_PROFILE_LEN: usize = 1 + MAX_NAME_LENGTH + MAX_BIO_LENGTH + 8 + 1;
 
-pub const MAX_THREAD_LEN: usize = 1 + 4 + 32 + 32 + 32 + 32;
+pub const MAX_THREAD_LEN: usize = 1 + 4 + 32 + 32 + 1;
 
-pub const MAX_MESSAGE_LEN: usize = 1 + 1 + MAX_MSG_LEN + 8;
-
-pub const MAX_JABBER_LEN: usize = 1 + 32;
+pub const MAX_MESSAGE_LEN: usize = 1 + 1 + 8 + MAX_MSG_LEN;
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Copy)]
 pub enum Tag {
@@ -31,21 +30,35 @@ pub enum Tag {
 #[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq)]
 pub struct Profile {
     pub tag: Tag,
-    pub name: Option<String>,
-    pub bio: Option<String>,
+    pub name: String,
+    pub bio: String,
     pub lamports_per_message: u64,
-    pub thread_tail_key: Option<Pubkey>,
+    pub bump: u8,
 }
 impl Profile {
     pub const SEED: &'static str = "profile";
-    pub const MIN_SPACE: usize = 228;
 
-    pub fn find_from_user_key(user_key: &Pubkey, program_id: &Pubkey) -> Pubkey {
-        let (user_profile_key, _) = Pubkey::find_program_address(
+    pub fn find_from_user_key(user_key: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        let (user_profile_key, bump) = Pubkey::find_program_address(
             &[Profile::SEED.as_bytes(), &user_key.to_bytes()],
             program_id,
         );
-        return user_profile_key;
+        return (user_profile_key, bump);
+    }
+
+    pub fn create_from_keys(user_key: &Pubkey, program_id: &Pubkey, bump: u8) -> Pubkey {
+        let seeds = &[Profile::SEED.as_bytes(), &user_key.to_bytes(), &[bump]];
+        Pubkey::create_program_address(seeds, program_id).unwrap()
+    }
+
+    pub fn new(name: String, bio: String, lamports_per_message: u64, bump: u8) -> Self {
+        Self {
+            tag: Tag::Profile,
+            name,
+            bio,
+            lamports_per_message,
+            bump,
+        }
     }
 
     pub fn save(&self, mut dst: &mut [u8]) {
@@ -60,46 +73,57 @@ impl Profile {
     }
 }
 
-impl Default for Profile {
-    fn default() -> Self {
-        Self {
-            tag: Tag::Profile,
-            name: None,
-            bio: None,
-            lamports_per_message: 0,
-            thread_tail_key: None,
-        }
-    }
-}
-
 #[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq)]
 pub struct Thread {
     pub tag: Tag,
     pub msg_count: u32,
-    pub prev_thread_sender_key: Option<Pubkey>,
-    pub prev_thread_receiver_key: Option<Pubkey>,
     pub sender_key: Pubkey,
     pub receiver_key: Pubkey,
+    pub bump: u8,
 }
 
 impl Thread {
-    pub const MIN_SPACE: usize = 134;
     pub const SEED: &'static str = "thread";
 
+    pub fn new(sender_key: Pubkey, receiver_key: Pubkey, bump: u8) -> Self {
+        Self {
+            tag: Tag::Thread,
+            msg_count: 0,
+            receiver_key,
+            sender_key,
+            bump,
+        }
+    }
+
     pub fn find_from_users_keys(
-        creator_pk: &Pubkey,
-        friend_pk: &Pubkey,
+        receiver: &Pubkey,
+        sender: &Pubkey,
         program_id: &Pubkey,
-    ) -> Pubkey {
-        let (thread_key, _) = Pubkey::find_program_address(
+    ) -> (Pubkey, u8) {
+        let (thread_key, bump) = Pubkey::find_program_address(
             &[
                 Thread::SEED.as_bytes(),
-                &creator_pk.to_bytes(),
-                &friend_pk.to_bytes(),
+                &receiver.to_bytes(),
+                &sender.to_bytes(),
             ],
             program_id,
         );
-        return thread_key;
+        return (thread_key, bump);
+    }
+
+    pub fn create_from_user_keys(
+        receiver: &Pubkey,
+        sender: &Pubkey,
+        program_id: &Pubkey,
+        bump: u8,
+    ) -> Pubkey {
+        let seeds = &[
+            Thread::SEED.as_bytes(),
+            &receiver.to_bytes(),
+            &sender.to_bytes(),
+            &[bump],
+        ];
+        Pubkey::create_program_address(seeds, program_id).unwrap()
     }
 
     pub fn save(&self, mut dst: &mut [u8]) {
@@ -112,28 +136,50 @@ impl Thread {
 
         Ok(result)
     }
+
+    pub fn increment_msg_count(&mut self) {
+        self.msg_count += 1;
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Copy)]
+pub enum MessageType {
+    Encrypted,
+    Unencrypted,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq)]
 pub struct Message {
     pub tag: Tag,
-    pub kind: u8,
-    pub msg: Vec<u8>,
+    pub kind: MessageType,
     pub timestamp: UnixTimestamp,
+    pub msg: Vec<u8>,
 }
 
 impl Message {
     pub const SEED: &'static str = "message";
 
-    pub fn find_with_seed(
+    pub fn get_len(&self) -> usize {
+        (1 + 1 + 8 + self.msg.len())
+    }
+
+    pub fn new(kind: MessageType, timestamp: UnixTimestamp, msg: Vec<u8>) -> Self {
+        Self {
+            tag: Tag::Message,
+            kind,
+            timestamp,
+            msg,
+        }
+    }
+
+    pub fn find_from_keys(
         index: u32,
         from_pk: &Pubkey,
         to_pk: &Pubkey,
         program_id: &Pubkey,
-    ) -> Pubkey {
+    ) -> (Pubkey, u8) {
         let i = index.to_string();
-        let end = MAX_SEED_LEN - i.len();
-        let (message_key, _) = Pubkey::find_program_address(
+        let (message_key, bump) = Pubkey::find_program_address(
             &[
                 Message::SEED.as_bytes(),
                 i.as_bytes(),
@@ -142,7 +188,25 @@ impl Message {
             ],
             program_id,
         );
-        return message_key;
+        return (message_key, bump);
+    }
+
+    pub fn create_from_keys(
+        index: u32,
+        from_pk: &Pubkey,
+        to_pk: &Pubkey,
+        program_id: &Pubkey,
+        bump: u8,
+    ) -> Pubkey {
+        let i = index.to_string();
+        let seeds = &[
+            Message::SEED.as_bytes(),
+            i.as_bytes(),
+            &from_pk.to_bytes(),
+            &to_pk.to_bytes(),
+            &[bump],
+        ];
+        Pubkey::create_program_address(seeds, program_id).unwrap()
     }
 
     pub fn save(&self, mut dst: &mut [u8]) {
@@ -155,28 +219,4 @@ impl Message {
 
         Ok(result)
     }
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub struct Jabber {
-    pub tag: Tag,
-    pub unregistered_thread_tail_pk: Option<Pubkey>,
-}
-
-impl Jabber {
-    pub fn save(&self, mut dst: &mut [u8]) {
-        self.serialize(&mut dst).unwrap()
-    }
-
-    pub fn from_account_info(a: &AccountInfo) -> Result<Jabber, ProgramError> {
-        let result: Jabber =
-            try_from_slice_checked(&a.data.borrow_mut(), Tag::Jabber, MAX_JABBER_LEN)?;
-
-        Ok(result)
-    }
-}
-
-pub mod owner_account {
-    use solana_program::declare_id;
-    declare_id!("D2T7LaEp7SgQCZWvxbMfWym6LW2cSfX69oXpFLCDqbVS");
 }

@@ -6,6 +6,8 @@ use solana_program::{
 
 use crate::instruction::JabberInstruction;
 
+pub mod create_profile;
+pub mod create_thread;
 pub mod send_message;
 pub mod set_user_profile;
 
@@ -23,6 +25,14 @@ impl Processor {
         msg!("Instruction unpacked");
 
         match instruction {
+            JabberInstruction::CreateProfile(params) => {
+                msg!("Instruction: Create user profile");
+                create_profile::process(program_id, accounts, params)?;
+            }
+            JabberInstruction::CreateThread(params) => {
+                msg!("Instruction: Create thread");
+                create_thread::process(program_id, accounts, params)?;
+            }
             JabberInstruction::SetUserProfile(params) => {
                 msg!("Instruction: Set user profile");
                 set_user_profile::process(program_id, accounts, params)?;

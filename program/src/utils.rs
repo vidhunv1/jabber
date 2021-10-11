@@ -1,10 +1,11 @@
 use borsh::BorshDeserialize;
 use solana_program::{
-    account_info::AccountInfo, borsh::try_from_slice_unchecked, entrypoint::ProgramResult,
+    account_info::AccountInfo, borsh::try_from_slice_unchecked, entrypoint::ProgramResult, msg,
     program::invoke_signed, program_error::ProgramError, pubkey::Pubkey, rent::Rent,
     system_instruction::create_account, system_program, sysvar::Sysvar,
 };
 
+use crate::state::{MAX_BIO_LENGTH, MAX_NAME_LENGTH};
 use crate::{error::JabberError, state::Tag};
 
 // Safety verification functions
@@ -80,4 +81,24 @@ pub fn create_program_account<'a, 'b: 'a>(
         ],
         &[&[seeds]],
     )
+}
+
+pub fn check_rent_exempt(account: &AccountInfo) -> ProgramResult {
+    let rent = Rent::get()?;
+    if !rent.is_exempt(account.lamports(), account.data_len()) {
+        return Err(JabberError::AccountNotRentExempt.into());
+    }
+    Ok(())
+}
+
+pub fn check_profile_params(name: &String, bio: &String) -> ProgramResult {
+    if bio.len() > MAX_BIO_LENGTH {
+        msg!("Bio is too long - max is {}", MAX_BIO_LENGTH);
+        return Err(ProgramError::InvalidArgument);
+    }
+    if name.len() > MAX_NAME_LENGTH {
+        msg!("Name is too long - max is {}", MAX_NAME_LENGTH);
+        return Err(ProgramError::InvalidArgument);
+    }
+    Ok(())
 }

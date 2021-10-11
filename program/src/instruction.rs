@@ -1,9 +1,23 @@
-use crate::processor::{send_message, set_user_profile};
+use crate::processor::{create_profile, create_thread, send_message, set_user_profile};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub enum JabberInstruction {
+    // Accounts expected by this insctruction
+    //
+    // | Index | Writable | Signer | Description           |
+    // |-------|----------|--------|-----------------------|
+    // | 0     | ❌        | ❌      | System program        |
+    // | 1     | ✅        | ❌      | Profile account       |
+    // | 2     | ✅        | ✅      | Profile account owner |
+    CreateProfile(create_profile::Params),
+    //     | Index | Writable | Signer | Description    |
+    // |-------|----------|--------|----------------|
+    // | 0     | ❌        | ❌      | System program |
+    // | 1     | ✅        | ❌      | Thread account |
+    // | 2     | ✅        | ✅      | Fee payer      |
+    CreateThread(create_thread::Params),
     //
     // Accounts expected by this instruction
     //

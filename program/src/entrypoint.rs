@@ -46,6 +46,15 @@ impl PrintProgramError for JabberError {
             JabberError::DataTypeMismatch => {
                 msg!("Error: Data type mismatch")
             }
+            JabberError::WrongThreadAccountOwner => {
+                msg!("Error: Thread account must be owned by the program")
+            }
+            JabberError::WrongSystemProgramAccount => {
+                msg!("Error: The system program account is invalid")
+            }
+            JabberError::WrongMessageAccount => {
+                msg!("Error: The message account is invalid")
+            }
         }
     }
 }

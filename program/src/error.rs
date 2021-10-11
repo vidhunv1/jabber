@@ -12,10 +12,16 @@ pub enum JabberError {
     AccountNotRentExempt = 2,
     #[error("Chat thread exists")]
     ChatThreadExists = 3,
-    #[error("User profile must be owned by the program")]
+    #[error("Profile profile must be owned by the program")]
     WrongProfileOwner = 4,
     #[error("Data type mismatch")]
     DataTypeMismatch,
+    #[error("Thread account must be owned by the program")]
+    WrongThreadAccountOwner,
+    #[error("The system program account is invalid")]
+    WrongSystemProgramAccount,
+    #[error("The message account must be owned by the program")]
+    WrongMessageAccount,
 }
 impl From<JabberError> for ProgramError {
     fn from(e: JabberError) -> Self {

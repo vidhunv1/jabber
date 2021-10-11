@@ -1,6 +1,6 @@
 use crate::error::JabberError;
 use crate::state::Profile;
-use crate::utils::{check_account_key, check_account_owner, check_signer};
+use crate::utils::{check_account_key, check_account_owner, check_profile_params, check_signer};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -11,9 +11,9 @@ use solana_program::{
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug)]
 pub struct Params {
-    name: Option<String>,
-    bio: Option<String>,
-    lamports_per_message: Option<u64>,
+    name: String,
+    bio: String,
+    lamports_per_message: u64,
 }
 
 struct Accounts<'a, 'b: 'a> {
@@ -38,15 +38,18 @@ impl<'a, 'b: 'a> Accounts<'a, 'b> {
             program_id,
             JabberError::WrongProfileOwner,
         )?;
-        if accounts.user_profile.try_data_len().unwrap() < Profile::MIN_SPACE {
-            return Err(ProgramError::AccountDataTooSmall);
+        if accounts.user_profile.data.borrow()[0] == 0 {
+            return Err(ProgramError::UninitializedAccount);
         }
 
-        let expected_user_profile_pk = Profile::find_from_user_key(accounts.user.key, &program_id);
+        let profile = Profile::from_account_info(accounts.user_profile)?;
+
+        let expected_user_profile_key =
+            Profile::create_from_keys(accounts.user.key, &program_id, profile.bump);
 
         check_account_key(
             accounts.user_profile,
-            &expected_user_profile_pk,
+            &expected_user_profile_key,
             JabberError::AccountNotDeterministic,
         )?;
 
@@ -65,12 +68,13 @@ pub(crate) fn process(
         lamports_per_message,
     } = params;
 
+    check_profile_params(&name, &bio)?;
+
     let accounts = Accounts::parse(program_id, accounts)?;
 
-    let mut profile =
-        Profile::from_account_info(&accounts.user_profile).unwrap_or(Profile::default());
+    let mut profile = Profile::from_account_info(&accounts.user_profile)?;
 
-    profile.lamports_per_message = lamports_per_message.unwrap_or(0);
+    profile.lamports_per_message = lamports_per_message;
     profile.bio = bio;
     profile.name = name;
 
