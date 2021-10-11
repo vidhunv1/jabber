@@ -49,12 +49,12 @@ impl<'a, 'b: 'a> Accounts<'a, 'b> {
             profile_owner: next_account_info(accounts_iter)?,
         };
 
-        check_signer(accounts.profile_owner)?;
         check_account_key(
             accounts.system_program,
             &system_program::ID,
             JabberError::WrongSystemProgramAccount,
         )?;
+        check_signer(accounts.profile_owner)?;
 
         Ok(accounts)
     }

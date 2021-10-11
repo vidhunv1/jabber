@@ -7,6 +7,7 @@ use solana_program::{
 
 use crate::state::{MAX_BIO_LENGTH, MAX_NAME_LENGTH};
 use crate::{error::JabberError, state::Tag};
+use std::cmp::Ordering::Less;
 
 // Safety verification functions
 pub fn check_account_key(
@@ -101,4 +102,12 @@ pub fn check_profile_params(name: &String, bio: &String) -> ProgramResult {
         return Err(ProgramError::InvalidArgument);
     }
     Ok(())
+}
+
+pub fn order_keys(key_1: &Pubkey, key_2: &Pubkey) -> (Pubkey, Pubkey) {
+    let order = key_1.to_string().cmp(&key_2.to_string());
+    if order == Less {
+        return (*key_1, *key_2);
+    }
+    return (*key_2, *key_1);
 }

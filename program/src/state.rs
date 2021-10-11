@@ -1,4 +1,4 @@
-use crate::utils::try_from_slice_checked;
+use crate::utils::{order_keys, try_from_slice_checked};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::AccountInfo,
@@ -77,34 +77,35 @@ impl Profile {
 pub struct Thread {
     pub tag: Tag,
     pub msg_count: u32,
-    pub sender_key: Pubkey,
-    pub receiver_key: Pubkey,
+    pub user_1: Pubkey,
+    pub user_2: Pubkey,
     pub bump: u8,
 }
 
 impl Thread {
     pub const SEED: &'static str = "thread";
 
-    pub fn new(sender_key: Pubkey, receiver_key: Pubkey, bump: u8) -> Self {
+    pub fn new(user_1: Pubkey, user_2: Pubkey, bump: u8) -> Self {
         Self {
             tag: Tag::Thread,
             msg_count: 0,
-            receiver_key,
-            sender_key,
+            user_1,
+            user_2,
             bump,
         }
     }
 
     pub fn find_from_users_keys(
-        receiver: &Pubkey,
-        sender: &Pubkey,
+        user_1: &Pubkey,
+        user_2: &Pubkey,
         program_id: &Pubkey,
     ) -> (Pubkey, u8) {
+        let (key_1, key_2) = order_keys(user_1, user_2);
         let (thread_key, bump) = Pubkey::find_program_address(
             &[
                 Thread::SEED.as_bytes(),
-                &receiver.to_bytes(),
-                &sender.to_bytes(),
+                &key_1.to_bytes(),
+                &key_2.to_bytes(),
             ],
             program_id,
         );
@@ -112,15 +113,16 @@ impl Thread {
     }
 
     pub fn create_from_user_keys(
-        receiver: &Pubkey,
-        sender: &Pubkey,
+        user_1: &Pubkey,
+        user_2: &Pubkey,
         program_id: &Pubkey,
         bump: u8,
     ) -> Pubkey {
+        let (key_1, key_2) = order_keys(user_1, user_2);
         let seeds = &[
             Thread::SEED.as_bytes(),
-            &receiver.to_bytes(),
-            &sender.to_bytes(),
+            &key_1.to_bytes(),
+            &key_2.to_bytes(),
             &[bump],
         ];
         Pubkey::create_program_address(seeds, program_id).unwrap()
@@ -193,17 +195,18 @@ impl Message {
 
     pub fn create_from_keys(
         index: u32,
-        from_pk: &Pubkey,
-        to_pk: &Pubkey,
+        from_key: &Pubkey,
+        to_key: &Pubkey,
         program_id: &Pubkey,
         bump: u8,
     ) -> Pubkey {
+        let (key_1, key_2) = order_keys(from_key, to_key);
         let i = index.to_string();
         let seeds = &[
             Message::SEED.as_bytes(),
             i.as_bytes(),
-            &from_pk.to_bytes(),
-            &to_pk.to_bytes(),
+            &key_1.to_bytes(),
+            &key_2.to_bytes(),
             &[bump],
         ];
         Pubkey::create_program_address(seeds, program_id).unwrap()

@@ -1,6 +1,6 @@
 use crate::{
     state::MessageType,
-    utils::{check_account_key, check_account_owner, check_rent_exempt, check_signer},
+    utils::{check_account_key, check_account_owner, check_rent_exempt, check_signer, order_keys},
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
@@ -8,10 +8,12 @@ use solana_program::{
     clock::Clock,
     entrypoint::ProgramResult,
     msg,
+    program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
     system_instruction::create_account,
+    system_program,
     sysvar::Sysvar,
 };
 
@@ -25,9 +27,10 @@ pub struct Params {
 }
 
 struct Accounts<'a, 'b: 'a> {
+    system_program: &'a AccountInfo<'b>,
     sender: &'a AccountInfo<'b>,
     receiver: &'a AccountInfo<'b>,
-    receiver_thread: &'a AccountInfo<'b>,
+    thread: &'a AccountInfo<'b>,
     receiver_profile: &'a AccountInfo<'b>,
     message: &'a AccountInfo<'b>,
 }
@@ -39,28 +42,37 @@ impl<'a, 'b: 'a> Accounts<'a, 'b> {
     ) -> Result<Self, ProgramError> {
         let accounts_iter = &mut accounts.iter();
         let accounts = Self {
+            system_program: next_account_info(accounts_iter)?,
             sender: next_account_info(accounts_iter)?,
             receiver: next_account_info(accounts_iter)?,
-            receiver_thread: next_account_info(accounts_iter)?,
+            thread: next_account_info(accounts_iter)?,
             receiver_profile: next_account_info(accounts_iter)?,
             message: next_account_info(accounts_iter)?,
         };
-
+        check_account_key(
+            accounts.system_program,
+            &system_program::ID,
+            JabberError::WrongSystemProgramAccount,
+        )?;
         check_signer(accounts.sender)?;
         if accounts.sender.key == accounts.receiver.key {
             return Err(ProgramError::InvalidArgument);
         }
         check_account_owner(
-            accounts.receiver_thread,
+            accounts.thread,
             program_id,
             JabberError::WrongThreadAccountOwner,
         )?;
-        check_account_owner(
-            accounts.message,
-            program_id,
-            JabberError::WrongMessageAccount,
-        )?;
-        check_rent_exempt(accounts.receiver_thread)?;
+        // If receiver profile exists it should be owned by the program
+        if !accounts.receiver_profile.data_is_empty() {
+            check_account_owner(
+                accounts.message,
+                program_id,
+                JabberError::WrongMessageAccount,
+            )?;
+        }
+
+        check_rent_exempt(accounts.thread)?;
 
         Ok(accounts)
     }
@@ -72,13 +84,23 @@ pub(crate) fn process(
     params: Params,
 ) -> ProgramResult {
     let accounts = Accounts::parse(program_id, accounts)?;
-    check_accounts(&accounts, program_id)?;
 
     let Params { kind, message } = params;
 
-    let mut thread = Thread::from_account_info(&accounts.receiver_thread)?;
+    let mut thread = Thread::from_account_info(&accounts.thread)?;
+    let thread_key = Thread::create_from_user_keys(
+        accounts.sender.key,
+        accounts.receiver.key,
+        program_id,
+        thread.bump,
+    );
+    check_account_key(
+        accounts.thread,
+        &thread_key,
+        JabberError::AccountNotDeterministic,
+    )?;
 
-    let (message_key, _) = Message::find_from_keys(
+    let (message_key, bump) = Message::find_from_keys(
         thread.msg_count,
         accounts.sender.key,
         accounts.receiver.key,
@@ -104,14 +126,27 @@ pub(crate) fn process(
         program_id,
     );
 
+    let (key_1, key_2) = order_keys(accounts.sender.key, accounts.receiver.key);
+
+    invoke_signed(
+        &allocate_account,
+        &[
+            accounts.system_program.clone(),
+            accounts.sender.clone(),
+            accounts.message.clone(),
+        ],
+        &[&[
+            Message::SEED.as_bytes(),
+            thread.msg_count.to_string().as_bytes(),
+            &key_1.to_bytes(),
+            &key_2.to_bytes(),
+            &[bump],
+        ]],
+    )?;
+
     message.save(&mut accounts.message.try_borrow_mut_data()?);
-
     thread.increment_msg_count();
-    thread.save(&mut accounts.receiver_thread.try_borrow_mut_data()?);
+    thread.save(&mut accounts.thread.try_borrow_mut_data()?);
 
-    Ok(())
-}
-
-fn check_accounts(accounts: &Accounts, program_id: &Pubkey) -> ProgramResult {
     Ok(())
 }
