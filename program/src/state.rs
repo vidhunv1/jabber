@@ -1,11 +1,7 @@
 use crate::utils::{order_keys, try_from_slice_checked};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
-    account_info::AccountInfo,
-    clock::Clock,
-    clock::UnixTimestamp,
-    program_error::ProgramError,
-    pubkey::{Pubkey, MAX_SEED_LEN},
+    account_info::AccountInfo, clock::UnixTimestamp, program_error::ProgramError, pubkey::Pubkey,
 };
 
 pub const MAX_NAME_LENGTH: usize = 32;

@@ -1,13 +1,8 @@
-use crate::{
-    state::MessageType,
-    utils::{check_account_key, check_account_owner, check_rent_exempt, check_signer},
-};
+use crate::utils::{check_account_key, check_signer};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
-    clock::Clock,
     entrypoint::ProgramResult,
-    msg,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
@@ -18,9 +13,7 @@ use solana_program::{
 };
 
 use crate::error::JabberError;
-use crate::state::{
-    Message, Profile, Tag, Thread, MAX_BIO_LENGTH, MAX_NAME_LENGTH, MAX_PROFILE_LEN,
-};
+use crate::state::{Profile, MAX_PROFILE_LEN};
 use crate::utils::check_profile_params;
 
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
