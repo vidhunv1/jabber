@@ -7,7 +7,6 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     clock::Clock,
     entrypoint::ProgramResult,
-    msg,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
@@ -18,7 +17,7 @@ use solana_program::{
 };
 
 use crate::error::JabberError;
-use crate::state::{Message, Profile, Tag, Thread};
+use crate::state::{Message, Thread};
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug)]
 pub struct Params {

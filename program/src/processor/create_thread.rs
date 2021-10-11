@@ -18,7 +18,7 @@ use solana_program::{
 };
 
 use crate::error::JabberError;
-use crate::state::{Message, Profile, Tag, Thread, MAX_THREAD_LEN};
+use crate::state::{Thread, MAX_THREAD_LEN};
 
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
 pub struct Params {

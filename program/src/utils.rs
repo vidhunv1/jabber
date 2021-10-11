@@ -2,7 +2,7 @@ use borsh::BorshDeserialize;
 use solana_program::{
     account_info::AccountInfo, borsh::try_from_slice_unchecked, entrypoint::ProgramResult, msg,
     program::invoke_signed, program_error::ProgramError, pubkey::Pubkey, rent::Rent,
-    system_instruction::create_account, system_program, sysvar::Sysvar,
+    system_instruction::create_account, sysvar::Sysvar,
 };
 
 use crate::state::{MAX_BIO_LENGTH, MAX_NAME_LENGTH};

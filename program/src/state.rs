@@ -162,7 +162,7 @@ impl Message {
     pub const SEED: &'static str = "message";
 
     pub fn get_len(&self) -> usize {
-        (1 + 1 + 8 + self.msg.len())
+        1 + 1 + 8 + self.msg.len()
     }
 
     pub fn new(kind: MessageType, timestamp: UnixTimestamp, msg: Vec<u8>) -> Self {
