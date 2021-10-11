@@ -7,17 +7,17 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     clock::Clock,
     entrypoint::ProgramResult,
-    program::invoke_signed,
+    program::{invoke, invoke_signed},
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
-    system_instruction::create_account,
+    system_instruction::{create_account, transfer},
     system_program,
     sysvar::Sysvar,
 };
 
 use crate::error::JabberError;
-use crate::state::{Message, Thread};
+use crate::state::{Message, Profile, Thread};
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug)]
 pub struct Params {
@@ -62,14 +62,6 @@ impl<'a, 'b: 'a> Accounts<'a, 'b> {
             program_id,
             JabberError::WrongThreadAccountOwner,
         )?;
-        // If receiver profile exists it should be owned by the program
-        if !accounts.receiver_profile.data_is_empty() {
-            check_account_owner(
-                accounts.message,
-                program_id,
-                JabberError::WrongMessageAccount,
-            )?;
-        }
 
         check_rent_exempt(accounts.thread)?;
 
@@ -146,6 +138,29 @@ pub(crate) fn process(
     message.save(&mut accounts.message.try_borrow_mut_data()?);
     thread.increment_msg_count();
     thread.save(&mut accounts.thread.try_borrow_mut_data()?);
+
+    // Transfer lamports if receiver profile exists
+    if !accounts.receiver_profile.data_is_empty() {
+        check_account_owner(
+            accounts.receiver_profile,
+            program_id,
+            JabberError::WrongProfileOwner,
+        )?;
+        let profile = Profile::from_account_info(accounts.receiver_profile)?;
+        let transfer = transfer(
+            accounts.sender.key,
+            accounts.receiver.key,
+            profile.lamports_per_message,
+        );
+        invoke(
+            &transfer,
+            &[
+                accounts.system_program.clone(),
+                accounts.sender.clone(),
+                accounts.receiver.clone(),
+            ],
+        )?;
+    }
 
     Ok(())
 }
