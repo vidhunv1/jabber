@@ -21,8 +21,8 @@ use crate::state::{Message, Profile, Thread};
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug)]
 pub struct Params {
-    kind: MessageType,
-    message: Vec<u8>,
+    pub kind: MessageType,
+    pub message: Vec<u8>,
 }
 
 struct Accounts<'a, 'b: 'a> {
@@ -135,9 +135,9 @@ pub(crate) fn process(
         ]],
     )?;
 
-    message.save(&mut accounts.message.try_borrow_mut_data()?);
+    message.save(&mut accounts.message.data.borrow_mut());
     thread.increment_msg_count();
-    thread.save(&mut accounts.thread.try_borrow_mut_data()?);
+    thread.save(&mut accounts.thread.data.borrow_mut());
 
     // Transfer lamports if receiver profile exists
     if !accounts.receiver_profile.data_is_empty() {

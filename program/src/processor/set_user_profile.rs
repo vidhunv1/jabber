@@ -11,9 +11,9 @@ use solana_program::{
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Debug)]
 pub struct Params {
-    name: String,
-    bio: String,
-    lamports_per_message: u64,
+    pub name: String,
+    pub bio: String,
+    pub lamports_per_message: u64,
 }
 
 struct Accounts<'a, 'b: 'a> {

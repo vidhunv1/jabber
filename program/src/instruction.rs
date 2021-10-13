@@ -1,4 +1,4 @@
-use crate::processor::{create_profile, create_thread, send_message, set_user_profile};
+pub use crate::processor::{create_profile, create_thread, send_message, set_user_profile};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
@@ -49,6 +49,7 @@ pub fn create_profile(
     jabber_program_id: Pubkey,
     profile_account: Pubkey,
     profile_account_owner: Pubkey,
+    fee_payer: Pubkey,
     params: create_profile::Params,
 ) -> Instruction {
     let instruction_data = JabberInstruction::CreateProfile(params);
@@ -57,6 +58,7 @@ pub fn create_profile(
         AccountMeta::new_readonly(system_program::ID, false),
         AccountMeta::new(profile_account, false),
         AccountMeta::new(profile_account_owner, true),
+        AccountMeta::new(fee_payer, true),
     ];
 
     Instruction {

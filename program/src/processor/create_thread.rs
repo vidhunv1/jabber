@@ -1,4 +1,7 @@
+use crate::error::JabberError;
+use crate::state::{Thread, MAX_THREAD_LEN};
 use crate::utils::check_account_key;
+use crate::utils::order_keys;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -12,13 +15,10 @@ use solana_program::{
     sysvar::Sysvar,
 };
 
-use crate::error::JabberError;
-use crate::state::{Thread, MAX_THREAD_LEN};
-
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
 pub struct Params {
-    sender_key: Pubkey,
-    receiver_key: Pubkey,
+    pub sender_key: Pubkey,
+    pub receiver_key: Pubkey,
 }
 
 struct Accounts<'a, 'b: 'a> {
@@ -70,7 +70,7 @@ pub(crate) fn process(
     )?;
 
     let lamports = Rent::get()?.minimum_balance(MAX_THREAD_LEN);
-
+    let (key_1, key_2) = order_keys(&receiver_key, &sender_key);
     let allocate_account = create_account(
         accounts.fee_payer.key,
         &thread_key,
@@ -88,12 +88,13 @@ pub(crate) fn process(
         ],
         &[&[
             Thread::SEED.as_bytes(),
-            &receiver_key.to_bytes(),
-            &sender_key.to_bytes(),
+            &key_1.to_bytes(),
+            &key_2.to_bytes(),
+            &[bump],
         ]],
     )?;
 
-    let thread = Thread::new(sender_key, receiver_key, bump);
+    let thread = Thread::new(key_1, key_2, bump);
     thread.save(&mut accounts.thread.try_borrow_mut_data()?);
 
     Ok(())

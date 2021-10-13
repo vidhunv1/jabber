@@ -158,7 +158,7 @@ impl Message {
     pub const SEED: &'static str = "message";
 
     pub fn get_len(&self) -> usize {
-        1 + 1 + 8 + self.msg.len()
+        1 + 1 + 8 + self.msg.len() + 8
     }
 
     pub fn new(kind: MessageType, timestamp: UnixTimestamp, msg: Vec<u8>) -> Self {
@@ -172,17 +172,18 @@ impl Message {
 
     pub fn find_from_keys(
         index: u32,
-        from_pk: &Pubkey,
-        to_pk: &Pubkey,
+        from_key: &Pubkey,
+        to_key: &Pubkey,
         program_id: &Pubkey,
     ) -> (Pubkey, u8) {
         let i = index.to_string();
+        let (key_1, key_2) = order_keys(from_key, to_key);
         let (message_key, bump) = Pubkey::find_program_address(
             &[
                 Message::SEED.as_bytes(),
                 i.as_bytes(),
-                &from_pk.to_bytes(),
-                &to_pk.to_bytes(),
+                &key_1.to_bytes(),
+                &key_2.to_bytes(),
             ],
             program_id,
         );

@@ -18,15 +18,16 @@ use crate::utils::check_profile_params;
 
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
 pub struct Params {
-    name: String,
-    bio: String,
-    lamports_per_message: u64,
+    pub name: String,
+    pub bio: String,
+    pub lamports_per_message: u64,
 }
 
 struct Accounts<'a, 'b: 'a> {
     system_program: &'a AccountInfo<'b>,
     profile: &'a AccountInfo<'b>,
     profile_owner: &'a AccountInfo<'b>,
+    fee_payer: &'a AccountInfo<'b>,
 }
 
 impl<'a, 'b: 'a> Accounts<'a, 'b> {
@@ -40,6 +41,7 @@ impl<'a, 'b: 'a> Accounts<'a, 'b> {
             system_program: next_account_info(accounts_iter)?,
             profile: next_account_info(accounts_iter)?,
             profile_owner: next_account_info(accounts_iter)?,
+            fee_payer: next_account_info(accounts_iter)?,
         };
 
         check_account_key(
@@ -77,9 +79,8 @@ pub(crate) fn process(
     )?;
 
     let lamports = Rent::get()?.minimum_balance(MAX_PROFILE_LEN);
-
     let allocate_account = create_account(
-        accounts.profile_owner.key,
+        accounts.fee_payer.key,
         accounts.profile.key,
         lamports,
         MAX_PROFILE_LEN as u64,
@@ -90,7 +91,7 @@ pub(crate) fn process(
         &allocate_account,
         &[
             accounts.system_program.clone(),
-            accounts.profile_owner.clone(),
+            accounts.fee_payer.clone(),
             accounts.profile.clone(),
         ],
         &[&[
