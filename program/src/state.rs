@@ -6,13 +6,13 @@ use solana_program::{
 
 pub const MAX_NAME_LENGTH: usize = 32;
 pub const MAX_BIO_LENGTH: usize = 100;
-pub const MAX_MSG_LEN: usize = 1_000; // TODO change
+pub const MAX_MSG_LEN: usize = 1_000;
 
 pub const MAX_PROFILE_LEN: usize = 1 + MAX_NAME_LENGTH + MAX_BIO_LENGTH + 8 + 1;
 
 pub const MAX_THREAD_LEN: usize = 1 + 4 + 32 + 32 + 1;
 
-pub const MAX_MESSAGE_LEN: usize = 1 + 1 + 8 + MAX_MSG_LEN + 8;
+pub const MAX_MESSAGE_LEN: usize = 1 + 1 + 8 + MAX_MSG_LEN + 4;
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Copy)]
 pub enum Tag {
@@ -158,7 +158,7 @@ impl Message {
     pub const SEED: &'static str = "message";
 
     pub fn get_len(&self) -> usize {
-        1 + 1 + 8 + self.msg.len() + 8
+        1 + 1 + 8 + self.msg.len() + 4
     }
 
     pub fn new(kind: MessageType, timestamp: UnixTimestamp, msg: Vec<u8>) -> Self {
