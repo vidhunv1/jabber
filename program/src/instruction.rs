@@ -16,6 +16,7 @@ pub enum JabberInstruction {
     // | 0     | ❌        | ❌      | System program        |
     // | 1     | ✅        | ❌      | Profile account       |
     // | 2     | ✅        | ✅      | Profile account owner |
+    // | 3     | ✅        | ✅      | Fee payer             |
     CreateProfile(create_profile::Params),
     // | Index | Writable | Signer | Description    |
     // |-------|----------|--------|----------------|
@@ -37,7 +38,7 @@ pub enum JabberInstruction {
     // | Index 	| Writable 	| Signer 	| Description              	|
     // |-------	|----------	|--------	|--------------------------	|
     // | 0     	| ❌        	| ❌      	| System program           	|
-    // | 1     	| ❌        	| ✅      	| Sender account           	|
+    // | 1     	| ✅        	| ✅      	| Sender account           	|
     // | 2     	| ✅        	| ❌      	| Receiver account         	|
     // | 3     	| ✅        	| ❌      	| Thread account         	|
     // | 4     	| ❌       	| ❌      	| Receiver profile        	|

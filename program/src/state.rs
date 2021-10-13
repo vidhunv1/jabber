@@ -12,7 +12,7 @@ pub const MAX_PROFILE_LEN: usize = 1 + MAX_NAME_LENGTH + MAX_BIO_LENGTH + 8 + 1;
 
 pub const MAX_THREAD_LEN: usize = 1 + 4 + 32 + 32 + 1;
 
-pub const MAX_MESSAGE_LEN: usize = 1 + 1 + 8 + MAX_MSG_LEN;
+pub const MAX_MESSAGE_LEN: usize = 1 + 1 + 8 + MAX_MSG_LEN + 8;
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Copy)]
 pub enum Tag {

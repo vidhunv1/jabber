@@ -2,3 +2,5 @@ bin/
 target/
 .store/
 dist/
+node_modules/
+wallet.json

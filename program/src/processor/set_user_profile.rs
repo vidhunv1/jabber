@@ -17,8 +17,8 @@ pub struct Params {
 }
 
 struct Accounts<'a, 'b: 'a> {
-    user: &'a AccountInfo<'b>,
-    user_profile: &'a AccountInfo<'b>,
+    profile_owner: &'a AccountInfo<'b>,
+    profile: &'a AccountInfo<'b>,
 }
 
 impl<'a, 'b: 'a> Accounts<'a, 'b> {
@@ -28,27 +28,23 @@ impl<'a, 'b: 'a> Accounts<'a, 'b> {
     ) -> Result<Self, ProgramError> {
         let accounts_iter = &mut accounts.iter();
         let accounts = Self {
-            user: next_account_info(accounts_iter)?,
-            user_profile: next_account_info(accounts_iter)?,
+            profile_owner: next_account_info(accounts_iter)?,
+            profile: next_account_info(accounts_iter)?,
         };
 
-        check_signer(accounts.user)?;
-        check_account_owner(
-            accounts.user_profile,
-            program_id,
-            JabberError::WrongProfileOwner,
-        )?;
-        if accounts.user_profile.data.borrow()[0] == 0 {
+        check_signer(accounts.profile_owner)?;
+        check_account_owner(accounts.profile, program_id, JabberError::WrongProfileOwner)?;
+        if accounts.profile.data.borrow()[0] == 0 {
             return Err(ProgramError::UninitializedAccount);
         }
 
-        let profile = Profile::from_account_info(accounts.user_profile)?;
+        let profile = Profile::from_account_info(accounts.profile)?;
 
         let expected_user_profile_key =
-            Profile::create_from_keys(accounts.user.key, &program_id, profile.bump);
+            Profile::create_from_keys(accounts.profile_owner.key, &program_id, profile.bump);
 
         check_account_key(
-            accounts.user_profile,
+            accounts.profile,
             &expected_user_profile_key,
             JabberError::AccountNotDeterministic,
         )?;
@@ -72,13 +68,13 @@ pub(crate) fn process(
 
     let accounts = Accounts::parse(program_id, accounts)?;
 
-    let mut profile = Profile::from_account_info(&accounts.user_profile)?;
+    let mut profile = Profile::from_account_info(&accounts.profile)?;
 
     profile.lamports_per_message = lamports_per_message;
     profile.bio = bio;
     profile.name = name;
 
-    profile.save(&mut accounts.user_profile.try_borrow_mut_data()?);
+    profile.save(&mut accounts.profile.data.borrow_mut());
 
     Ok(())
 }
