@@ -1,4 +1,4 @@
-use crate::utils::{order_keys, try_from_slice_checked};
+use crate::{error::JabberError, utils::order_keys};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::AccountInfo, clock::UnixTimestamp, program_error::ProgramError, pubkey::Pubkey,
@@ -11,8 +11,6 @@ pub const MAX_MSG_LEN: usize = 1_000;
 pub const MAX_PROFILE_LEN: usize = 1 + MAX_NAME_LENGTH + MAX_BIO_LENGTH + 8 + 1;
 
 pub const MAX_THREAD_LEN: usize = 1 + 4 + 32 + 32 + 1;
-
-pub const MAX_MESSAGE_LEN: usize = 1 + 1 + 8 + MAX_MSG_LEN + 4;
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Copy)]
 pub enum Tag {
@@ -62,9 +60,11 @@ impl Profile {
     }
 
     pub fn from_account_info(a: &AccountInfo) -> Result<Profile, ProgramError> {
-        let result: Profile =
-            try_from_slice_checked(&a.data.borrow_mut(), Tag::Profile, MAX_PROFILE_LEN)?;
-
+        let mut data = &a.data.borrow() as &[u8];
+        if data[0] != Tag::Profile as u8 && data[0] != Tag::Uninitialized as u8 {
+            return Err(JabberError::DataTypeMismatch.into());
+        }
+        let result = Profile::deserialize(&mut data)?;
         Ok(result)
     }
 }
@@ -129,9 +129,11 @@ impl Thread {
     }
 
     pub fn from_account_info(a: &AccountInfo) -> Result<Thread, ProgramError> {
-        let result: Thread =
-            try_from_slice_checked(&a.data.borrow_mut(), Tag::Thread, MAX_THREAD_LEN)?;
-
+        let mut data = &a.data.borrow() as &[u8];
+        if data[0] != Tag::Thread as u8 && data[0] != Tag::Uninitialized as u8 {
+            return Err(JabberError::DataTypeMismatch.into());
+        }
+        let result = Thread::deserialize(&mut data)?;
         Ok(result)
     }
 
@@ -152,21 +154,23 @@ pub struct Message {
     pub kind: MessageType,
     pub timestamp: UnixTimestamp,
     pub msg: Vec<u8>,
+    pub sender: Pubkey,
 }
 
 impl Message {
     pub const SEED: &'static str = "message";
 
     pub fn get_len(&self) -> usize {
-        1 + 1 + 8 + self.msg.len() + 4
+        1 + 1 + 8 + self.msg.len() + 4 + 32
     }
 
-    pub fn new(kind: MessageType, timestamp: UnixTimestamp, msg: Vec<u8>) -> Self {
+    pub fn new(kind: MessageType, timestamp: UnixTimestamp, msg: Vec<u8>, sender: Pubkey) -> Self {
         Self {
             tag: Tag::Message,
             kind,
             timestamp,
             msg,
+            sender,
         }
     }
 
@@ -214,9 +218,11 @@ impl Message {
     }
 
     pub fn from_account_info(a: &AccountInfo) -> Result<Message, ProgramError> {
-        let result: Message =
-            try_from_slice_checked(&a.data.borrow_mut(), Tag::Message, MAX_MESSAGE_LEN)?;
-
+        let mut data = &a.data.borrow() as &[u8];
+        if data[0] != Tag::Message as u8 && data[0] != Tag::Uninitialized as u8 {
+            return Err(JabberError::DataTypeMismatch.into());
+        }
+        let result = Message::deserialize(&mut data)?;
         Ok(result)
     }
 }
