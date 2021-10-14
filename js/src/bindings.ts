@@ -103,3 +103,32 @@ export const sendMessage = async (
 
   return instruction;
 };
+
+export const retrieveUserThread = async (
+  connection: Connection,
+  user: PublicKey
+) => {
+  let filters_1 = [
+    {
+      memcmp: {
+        offset: 1 + 4,
+        bytes: user.toBase58(),
+      },
+    },
+  ];
+  const filters_2 = [
+    {
+      memcmp: {
+        offset: 1 + 4 + 32,
+        bytes: user.toBase58(),
+      },
+    },
+  ];
+  const result_1 = await connection.getProgramAccounts(JABBER_ID, {
+    filters: filters_1,
+  });
+  const result_2 = await connection.getProgramAccounts(JABBER_ID, {
+    filters: filters_2,
+  });
+  return result_1.concat(result_2);
+};

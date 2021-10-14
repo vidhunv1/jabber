@@ -122,6 +122,14 @@ export class Thread {
     return [Buffer.from("thread"), key1.toBuffer(), key2.toBuffer()];
   }
 
+  static async getKeys(sender: PublicKey, receiver: PublicKey) {
+    const [thread] = await PublicKey.findProgramAddress(
+      Thread.generateSeeds(sender, receiver),
+      JABBER_ID
+    );
+    return thread;
+  }
+
   static async retrieve(
     connection: Connection,
     sender: PublicKey,
@@ -132,6 +140,16 @@ export class Thread {
       JABBER_ID
     );
     const accountInfo = await connection.getAccountInfo(thread);
+
+    if (!accountInfo?.data) {
+      throw new Error("Thread not found");
+    }
+
+    return this.deserialize(accountInfo.data);
+  }
+
+  static async retrieveFromKey(connection: Connection, key: PublicKey) {
+    const accountInfo = await connection.getAccountInfo(key);
 
     if (!accountInfo?.data) {
       throw new Error("Thread not found");
@@ -229,8 +247,10 @@ export class Message {
     const accountInfos = await connection.getMultipleAccountsInfo(
       messageAccounts
     );
-    return accountInfos.map((info) =>
-      info?.data ? this.deserialize(info?.data) : undefined
+    return accountInfos.map((info, i) =>
+      info?.data
+        ? { message: this.deserialize(info?.data), address: messageAccounts[i] }
+        : undefined
     );
   }
 }
