@@ -34,28 +34,20 @@ export const orderKeys = (key1: PublicKey, key2: PublicKey) => {
 
 export const encryptMessage = (
   msg: Uint8Array,
-  sAccount: Keypair,
+  dhKeys: { publicKey: Buffer; secretKey: Buffer },
   rPublicKey: PublicKey,
   nonce: Uint8Array
 ): Uint8Array => {
-  const dhKeys = ed2curve.convertKeyPair({
-    publicKey: sAccount.publicKey.toBuffer(),
-    secretKey: sAccount.secretKey,
-  });
   const dhrPk = ed2curve.convertPublicKey(rPublicKey);
   return nacl.box(msg, nonce, dhrPk, dhKeys.secretKey);
 };
 
 export const decryptMessage = (
   msg: Uint8Array,
-  account: Keypair,
+  dhKeys: { publicKey: Buffer; secretKey: Buffer },
   fromPk: PublicKey,
   nonce: Uint8Array
 ): Uint8Array | null => {
-  const dhKeys = ed2curve.convertKeyPair({
-    publicKey: account.publicKey.toBuffer(),
-    secretKey: account.secretKey,
-  });
   const dhrPk = ed2curve.convertPublicKey(fromPk);
   return nacl.box.open(msg, nonce, dhrPk, dhKeys.secretKey);
 };

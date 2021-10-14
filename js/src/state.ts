@@ -146,6 +146,7 @@ export class Message {
   kind: MessageType;
   timestamp: BN;
   msg: Uint8Array;
+  sender: PublicKey;
 
   static schema: Schema = new Map([
     [
@@ -157,16 +158,23 @@ export class Message {
           ["kind", "u8"],
           ["timestamp", "u64"],
           ["msg", ["u8"]],
+          ["sender", [32]],
         ],
       },
     ],
   ]);
 
-  constructor(obj: { kind: MessageType; timestamp: BN; msg: Uint8Array }) {
+  constructor(obj: {
+    kind: MessageType;
+    timestamp: BN;
+    msg: Uint8Array;
+    sender: Uint8Array;
+  }) {
     this.tag = Tag.Message;
     this.kind = obj.kind;
     this.timestamp = obj.timestamp;
     this.msg = obj.msg;
+    this.sender = new PublicKey(obj.sender);
   }
 
   static deserialize(data: Buffer) {
