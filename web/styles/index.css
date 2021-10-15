@@ -1,9 +1,0 @@
-@tailwind base;
-@tailwind components;
-
-@font-face {
-  font-family: 'CascadiaCode';
-  src: local('CascadiaCode'), url(/fonts/CascadiaCode.woff2) format('woff2');
-}
-
-@tailwind utilities;
